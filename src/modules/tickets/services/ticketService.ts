@@ -150,7 +150,7 @@ export const ticketService = {
         'Ticket Closed',
         `Your ticket in **${channel.guild.name}** has been closed.\n**Reason:** ${reason}`,
       );
-      await member.send({ embeds: [dmEmbed], files: [attachment] }).catch(() => null);
+      await member.send({ embeds: [dmEmbed] }).catch(() => null);
     }
 
     setTimeout(async () => {

@@ -1,0 +1,728 @@
+// ─────────────────────────────────────────────────────────────
+// Viralytics — Discord Clipping Agency Bot
+// Prisma Schema  •  PostgreSQL
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ENUMS
+// ═══════════════════════════════════════════════════════════════
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  DENIED
+  SUSPENDED
+}
+
+enum TicketCategory {
+  SUPPORT
+  PAYMENT
+  CAMPAIGN_HELP
+  PARTNERSHIP
+  BUG_REPORT
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_RESPONSE
+  ON_HOLD
+  RESOLVED
+  CLOSED
+}
+
+enum Platform {
+  INSTAGRAM_REELS
+  TIKTOK
+  YOUTUBE_SHORTS
+  FACEBOOK_REELS
+  X_VIDEOS
+  THREADS
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELETED
+  FLAGGED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+  CLOSED
+}
+
+enum ModAction {
+  WARN
+  MUTE
+  KICK
+  BAN
+  TIMEOUT
+  UNMUTE
+  UNBAN
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum BadgeRarity {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+enum AuditAction {
+  MEMBER_VERIFIED
+  MEMBER_DENIED
+  MEMBER_SUSPENDED
+  MOD_WARN
+  MOD_MUTE
+  MOD_UNMUTE
+  MOD_KICK
+  MOD_BAN
+  MOD_UNBAN
+  MOD_TIMEOUT
+  SUBMISSION_CREATED
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
+  SUBMISSION_DELETED
+  SUBMISSION_FLAGGED
+  CAMPAIGN_CREATED
+  CAMPAIGN_EDITED
+  CAMPAIGN_PAUSED
+  CAMPAIGN_ARCHIVED
+  CAMPAIGN_CLOSED
+  TICKET_OPENED
+  TICKET_CLOSED
+  TICKET_ESCALATED
+  PAYOUT_CREATED
+  PAYOUT_COMPLETED
+  PAYOUT_FAILED
+  CONFIG_UPDATED
+  ROLE_REWARD_GRANTED
+  BADGE_GRANTED
+  LEVEL_UP
+  INVITE_CREDITED
+  INVITE_REVOKED
+  FAKE_INVITE_DETECTED
+}
+
+enum InviteStatus {
+  VALID
+  LEFT
+  FAKE
+  REVOKED
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CORE: GUILD & USER & MEMBER
+// ═══════════════════════════════════════════════════════════════
+
+/// Discord server (guild) — one row per server the bot is in
+model Guild {
+  id       String   @id // Discord guild snowflake
+  name     String
+  iconUrl  String?
+  ownerId  String
+  joinedAt DateTime @default(now())
+  leftAt   DateTime?
+
+  config                GuildConfig?
+  members               Member[]
+  campaigns             Campaign[]
+  tickets               Ticket[]
+  submissions           Submission[]
+  modCases              ModCase[]
+  invites               Invite[]
+  auditLogs             AuditLog[]
+  payouts               Payout[]
+  roleRewards           RoleReward[]
+  badges                Badge[]
+  leaderboardSnapshots  LeaderboardSnapshot[]
+  announcements         Announcement[]
+  reminders             Reminder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Global Discord user (shared across guilds)
+model User {
+  id               String   @id // Discord user snowflake
+  username         String
+  discriminator    String   @default("0")
+  globalName       String?
+  avatarUrl        String?
+  accountCreatedAt DateTime
+
+  members          Member[]
+  ticketsOpened    Ticket[]        @relation("TicketOpener")
+  ticketsClaimed   Ticket[]        @relation("TicketClaimer")
+  ticketMessages   TicketMessage[]
+  submissions      Submission[]
+  modCasesReceived ModCase[]       @relation("ModCaseTarget")
+  modCasesIssued   ModCase[]       @relation("ModCaseModerator")
+  invitesSent      Invite[]        @relation("Inviter")
+  invitesReceived  Invite[]        @relation("Invitee")
+  auditLogs        AuditLog[]
+  payouts          Payout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A user's membership in a specific guild (per-server state)
+model Member {
+  id      String @id @default(cuid())
+  guildId String
+  userId  String
+
+  // Verification
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  altOf              String?
+  isAltFlagged       Boolean            @default(false)
+  accountAgeDays     Int?
+
+  // XP & Leveling
+  totalXp      Int       @default(0)
+  level        Int       @default(0)
+  messageCount Int       @default(0)
+  lastXpGainAt DateTime?
+
+  // Invite Stats (denormalized)
+  totalInvites Int @default(0)
+  fakeInvites  Int @default(0)
+  leftInvites  Int @default(0)
+  bonusInvites Int @default(0)
+
+  // Submission Stats (denormalized for leaderboard speed)
+  totalSubmissions    Int @default(0)
+  approvedSubmissions Int @default(0)
+  rejectedSubmissions Int @default(0)
+
+  guild        Guild         @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memberBadges MemberBadge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@index([userId])
+  @@index([guildId, totalXp(sort: Desc)])
+  @@index([guildId, totalSubmissions(sort: Desc)])
+  @@index([guildId, verificationStatus])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GUILD CONFIGURATION
+// ═══════════════════════════════════════════════════════════════
+
+model GuildConfig {
+  id      String @id @default(cuid())
+  guildId String @unique
+  guild   Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  // General
+  prefix   String @default("!")
+  language String @default("en")
+  timezone String @default("UTC")
+
+  // Log Channel IDs
+  verificationLogChannelId String?
+  ticketLogChannelId       String?
+  submissionLogChannelId   String?
+  duplicateLogChannelId    String?
+  moderationLogChannelId   String?
+  campaignLogChannelId     String?
+  errorLogChannelId        String?
+  staffActionLogChannelId  String?
+
+  // Feature Channel IDs
+  welcomeChannelId      String?
+  verificationChannelId String?
+  submissionChannelId   String?
+  leaderboardChannelId  String?
+  ticketCategoryId      String?
+
+  // Role IDs
+  verifiedRoleId   String?
+  unverifiedRoleId String?
+  mutedRoleId      String?
+  modRoleId        String?
+  adminRoleId      String?
+  clipperRoleId    String?
+
+  // Verification Settings
+  minAccountAgeDays       Int     @default(7)
+  altDetectionEnabled     Boolean @default(true)
+  verificationEnabled     Boolean @default(true)
+  captchaEnabled          Boolean @default(true)
+
+  // XP Settings
+  xpPerMessage                 Int     @default(15)
+  xpPerSubmission              Int     @default(50)
+  xpPerVerification            Int     @default(25)
+  xpCooldownSeconds            Int     @default(60)
+  levelUpAnnouncementEnabled   Boolean @default(true)
+
+  // Submission Settings
+  maxDailySubmissions   Int     @default(50)
+  duplicateCheckEnabled Boolean @default(true)
+  autoApproveEnabled    Boolean @default(false)
+
+  // Invite Tracking
+  inviteTrackingEnabled   Boolean @default(true)
+  fakeInviteThresholdDays Int     @default(3)
+  xpPerInvite             Int     @default(30)
+
+  // Moderation
+  autoModEnabled        Boolean @default(true)
+  maxWarnsBeforeMute    Int     @default(3)
+  maxWarnsBeforeBan     Int     @default(5)
+  muteDefaultMinutes    Int     @default(60)
+  timeoutDefaultMinutes Int     @default(30)
+  antiRaidEnabled       Boolean @default(true)
+  antiSpamEnabled       Boolean @default(true)
+  antiScamEnabled       Boolean @default(true)
+
+  // Payout Settings
+  defaultCurrency String @default("USD")
+
+  // Allowed Platforms
+  allowedPlatforms Platform[] @default([INSTAGRAM_REELS, TIKTOK, YOUTUBE_SHORTS, FACEBOOK_REELS, X_VIDEOS, THREADS])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CAMPAIGNS
+// ═══════════════════════════════════════════════════════════════
+
+model Campaign {
+  id          String         @id @default(cuid())
+  guildId     String
+  name        String
+  description String?
+  status      CampaignStatus @default(DRAFT)
+
+  platforms  Platform[]
+  hashtags   String[]
+  guidelines String?
+
+  payPerApproved Decimal? @db.Decimal(10, 2)
+  currency       String   @default("USD")
+
+  maxSubmissionsPerUser Int?
+  maxTotalSubmissions   Int?
+
+  roleId    String?
+  channelId String?
+  logChannelId String?
+
+  startsAt   DateTime?
+  endsAt     DateTime?
+  archivedAt DateTime?
+  closedAt   DateTime?
+
+  guild       Guild        @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+  payouts     Payout[]
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, name])
+  @@index([guildId])
+  @@index([guildId, status])
+  @@index([status])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SUBMISSIONS (high-volume — millions of rows)
+// ═══════════════════════════════════════════════════════════════
+
+model Submission {
+  id         String           @id @default(cuid())
+  shortId    String           @unique // Human-readable short ID (nanoid)
+  guildId    String
+  userId     String
+  campaignId String
+  platform   Platform
+
+  originalUrl   String
+  normalizedUrl String
+  notes         String?
+
+  status     SubmissionStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  reviewNote String?
+
+  messageId String?
+  channelId String?
+
+  guild    Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  payout   Payout?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([normalizedUrl, campaignId])
+  @@index([guildId])
+  @@index([userId])
+  @@index([campaignId])
+  @@index([guildId, userId])
+  @@index([guildId, campaignId])
+  @@index([status])
+  @@index([guildId, status])
+  @@index([platform])
+  @@index([createdAt])
+  @@index([guildId, createdAt])
+  @@index([guildId, userId, createdAt])
+  @@index([guildId, campaignId, status])
+  @@index([userId, campaignId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TICKETS
+// ═══════════════════════════════════════════════════════════════
+
+model Ticket {
+  id         String         @id @default(cuid())
+  number     Int
+  guildId    String
+  openedById String
+  claimedById String?
+  channelId  String?
+
+  category TicketCategory
+  status   TicketStatus   @default(OPEN)
+  subject  String
+  priority Int            @default(0)
+
+  closedAt    DateTime?
+  closedBy    String?
+  transcriptUrl String?
+
+  guild    Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  openedBy User   @relation("TicketOpener", fields: [openedById], references: [id])
+  claimedBy User? @relation("TicketClaimer", fields: [claimedById], references: [id])
+  messages TicketMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, number])
+  @@index([guildId])
+  @@index([guildId, status])
+  @@index([openedById])
+  @@index([claimedById])
+  @@index([guildId, category])
+}
+
+model TicketMessage {
+  id       String  @id @default(cuid())
+  ticketId String
+  authorId String
+  content  String
+  isStaff  Boolean @default(false)
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([ticketId, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MODERATION
+// ═══════════════════════════════════════════════════════════════
+
+model ModCase {
+  id          String    @id @default(cuid())
+  caseNumber  Int
+  guildId     String
+  targetId    String
+  moderatorId String
+  action      ModAction
+  reason      String?
+  duration    Int?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  revokedAt   DateTime?
+  revokedBy   String?
+
+  guild     Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  target    User  @relation("ModCaseTarget", fields: [targetId], references: [id])
+  moderator User  @relation("ModCaseModerator", fields: [moderatorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, caseNumber])
+  @@index([guildId])
+  @@index([targetId])
+  @@index([guildId, targetId])
+  @@index([guildId, action])
+  @@index([guildId, isActive])
+  @@index([expiresAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INVITE TRACKING
+// ═══════════════════════════════════════════════════════════════
+
+model Invite {
+  id        String       @id @default(cuid())
+  guildId   String
+  inviterId String
+  inviteeId String
+  code      String
+  status    InviteStatus @default(VALID)
+
+  inviteeAccountAgeDays Int?
+  isFake               Boolean @default(false)
+  fakeReason           String?
+
+  joinedAt DateTime @default(now())
+  leftAt   DateTime?
+
+  guild   Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  inviter User  @relation("Inviter", fields: [inviterId], references: [id])
+  invitee User  @relation("Invitee", fields: [inviteeId], references: [id])
+
+  @@unique([guildId, inviteeId])
+  @@index([guildId])
+  @@index([inviterId])
+  @@index([guildId, inviterId])
+  @@index([guildId, status])
+  @@index([code])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  XP, REWARDS, BADGES
+// ═══════════════════════════════════════════════════════════════
+
+model RoleReward {
+  id            String @id @default(cuid())
+  guildId       String
+  roleId        String
+  requiredLevel Int
+  roleName      String
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, roleId])
+  @@unique([guildId, requiredLevel])
+  @@index([guildId])
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  guildId     String
+  name        String
+  description String?
+  emoji       String?
+  imageUrl    String?
+  rarity      BadgeRarity @default(COMMON)
+
+  criteriaType  String?
+  criteriaValue Int?
+
+  guild   Guild         @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  members MemberBadge[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, name])
+  @@index([guildId])
+}
+
+model MemberBadge {
+  id        String  @id @default(cuid())
+  memberId  String
+  badgeId   String
+  grantedBy String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  badge  Badge  @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  grantedAt DateTime @default(now())
+
+  @@unique([memberId, badgeId])
+  @@index([memberId])
+  @@index([badgeId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LEADERBOARD SNAPSHOTS
+// ═══════════════════════════════════════════════════════════════
+
+model LeaderboardSnapshot {
+  id        String @id @default(cuid())
+  guildId   String
+  userId    String
+  period    String // "daily", "weekly", "monthly"
+  periodKey String // e.g., "2026-07-21", "2026-W30", "2026-07"
+
+  submissions Int @default(0)
+  approved    Int @default(0)
+  rejected    Int @default(0)
+  xpEarned    Int @default(0)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, userId, period, periodKey])
+  @@index([guildId, period, periodKey])
+  @@index([userId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PAYOUTS
+// ═══════════════════════════════════════════════════════════════
+
+model Payout {
+  id           String       @id @default(cuid())
+  guildId      String
+  userId       String
+  campaignId   String?
+  submissionId String?      @unique
+
+  amount   Decimal      @db.Decimal(10, 2)
+  currency String       @default("USD")
+  status   PayoutStatus @default(PENDING)
+
+  paymentMethod String?
+  transactionId String?
+  note          String?
+
+  processedAt DateTime?
+  processedBy String?
+
+  guild      Guild       @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id])
+  campaign   Campaign?   @relation(fields: [campaignId], references: [id])
+  submission Submission? @relation(fields: [submissionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([guildId])
+  @@index([userId])
+  @@index([guildId, userId])
+  @@index([guildId, status])
+  @@index([campaignId])
+  @@index([guildId, campaignId, status])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ANNOUNCEMENTS & REMINDERS
+// ═══════════════════════════════════════════════════════════════
+
+model Announcement {
+  id        String  @id @default(cuid())
+  guildId   String
+  channelId String
+  title     String
+  content   String
+  imageUrl  String?
+  color     String?
+  mentionRoles String[]
+  isPublished  Boolean  @default(false)
+  scheduledAt  DateTime?
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([guildId])
+  @@index([scheduledAt])
+  @@index([guildId, isPublished])
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  guildId   String
+  channelId String?
+  userId    String?
+  roleId    String?
+  message   String
+  type      String   // "campaign_deadline", "missing_submission", "inactive", "payout"
+  isSent    Boolean  @default(false)
+  scheduledAt DateTime
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([guildId])
+  @@index([scheduledAt])
+  @@index([isSent, scheduledAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AUDIT LOG
+// ═══════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  guildId    String
+  actorId    String?
+  action     AuditAction
+  targetId   String?
+  targetType String?
+
+  metadata Json?
+  reason   String?
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([guildId])
+  @@index([guildId, action])
+  @@index([guildId, actorId])
+  @@index([guildId, targetId])
+  @@index([guildId, createdAt])
+  @@index([createdAt])
+}

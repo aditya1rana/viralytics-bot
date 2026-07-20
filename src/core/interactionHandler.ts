@@ -3,6 +3,7 @@ import {
   Collection,
   Events,
   Interaction,
+  GuildMember,
 } from 'discord.js';
 import { Command, ButtonHandler, SelectMenuHandler, ModalHandler } from '../types/index.js';
 import { logger } from '../services/logger.js';
@@ -17,6 +18,16 @@ export function registerInteractionHandler(
 ) {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
+      // Ensure Guild and User/Member exist in the database for guild interactions
+      if (interaction.guild) {
+        const { ensureGuild, ensureUser, ensureMember } = await import('../utils/helpers.js');
+        await ensureGuild(interaction.guild);
+        if (interaction.member) {
+          await ensureUser(interaction.member as GuildMember);
+          await ensureMember(interaction.guild.id, interaction.user.id);
+        }
+      }
+
       // ── Slash Commands ──
       if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);

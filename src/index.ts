@@ -7,6 +7,7 @@ import { connectDatabase, disconnectDatabase } from './services/database.js';
 import { connectRedis, disconnectRedis } from './services/redis.js';
 import { logger } from './services/logger.js';
 import { Events } from 'discord.js';
+import http from 'node:http';
 
 async function main() {
   logger.info('🚀 Starting Viralytics Bot...');
@@ -33,6 +34,17 @@ async function main() {
     logger.info(`📌 ${client.commands.size} commands loaded`);
   });
 
+  // Start a simple HTTP server to satisfy Render health checks and allow pings
+  const port = process.env.PORT || 10000;
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Viralytics Bot is Online!');
+  });
+  
+  server.listen(port, () => {
+    logger.info(`🌐 HTTP server listening on port ${port}`);
+  });
+
   // Login
   await client.login(config.DISCORD_TOKEN);
 
@@ -46,6 +58,9 @@ async function main() {
     }, 15_000);
 
     try {
+      server.close();
+      logger.info('✅ HTTP server closed');
+
       client.destroy();
       logger.info('✅ Discord client destroyed');
 

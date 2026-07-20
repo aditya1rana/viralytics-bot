@@ -8,6 +8,9 @@ import COLORS from '../../../utils/colors.js';
 const captchaModalHandler: ModalHandler = {
   customId: /^captcha_modal:answer:\d+$/,
   async execute(interaction: ModalSubmitInteraction) {
+    // Defer reply immediately to prevent Discord's 3-second timeout during verification processing
+    await interaction.deferReply({ ephemeral: true });
+
     try {
       const customId = interaction.customId; // format: captcha_modal:answer:12
       const parts = customId.split(':');
@@ -15,7 +18,7 @@ const captchaModalHandler: ModalHandler = {
       const userAnswer = interaction.fields.getTextInputValue('captcha_input').trim();
 
       if (userAnswer !== expectedAnswer) {
-        await interaction.reply({ content: '❌ Incorrect answer. Please click the Verify button to try again.', ephemeral: true });
+        await interaction.editReply({ content: '❌ Incorrect answer. Please click the Verify button to try again.' });
         return;
       }
 
@@ -31,14 +34,14 @@ const captchaModalHandler: ModalHandler = {
           description: 'You solved the captcha and have been verified!',
           color: COLORS.SUCCESS
         });
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.editReply({ embeds: [embed] });
       } else {
-        await interaction.reply({ content: 'An error occurred while verifying you. Please contact staff.', ephemeral: true });
+        await interaction.editReply({ content: 'An error occurred while verifying you. Please contact staff.' });
       }
 
     } catch (error) {
       logger.error('Error handling captcha modal:', error);
-      await interaction.reply({ content: 'Something went wrong processing your captcha.', ephemeral: true }).catch(() => null);
+      await interaction.editReply({ content: 'Something went wrong processing your captcha.' }).catch(() => null);
     }
   }
 };

@@ -47,6 +47,9 @@ const verifyButtonHandler: ButtonHandler = {
 
         await interaction.showModal(modal);
       } else {
+        // Defer reply immediately to avoid 3-second Discord timeout during DB updates and Discord role additions
+        await interaction.deferReply({ ephemeral: true });
+
         const member = await guild.members.fetch(interaction.user.id);
         const success = await verificationService.verifyMember(guild, member);
         if (success) {
@@ -55,15 +58,20 @@ const verifyButtonHandler: ButtonHandler = {
             description: 'You have been verified and granted access to the server.',
             color: COLORS.SUCCESS
           });
-          await interaction.reply({ embeds: [embed], ephemeral: true });
+          await interaction.editReply({ embeds: [embed] });
         } else {
-          await interaction.reply({ content: 'An error occurred during verification. Please contact a staff member.', ephemeral: true });
+          await interaction.editReply({ content: 'An error occurred during verification. Please contact a staff member.' });
         }
       }
 
     } catch (error) {
       logger.error('Error handling verify button:', error);
-      await interaction.reply({ content: 'Something went wrong.', ephemeral: true }).catch(() => null);
+      // Fallback response depending on whether we deferred the reply already
+      if (interaction.deferred) {
+        await interaction.editReply({ content: 'Something went wrong.' }).catch(() => null);
+      } else {
+        await interaction.reply({ content: 'Something went wrong.', ephemeral: true }).catch(() => null);
+      }
     }
   }
 };

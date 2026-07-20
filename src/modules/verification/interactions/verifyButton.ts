@@ -30,7 +30,7 @@ const verifyButtonHandler: ButtonHandler = {
           if (role) {
             try {
               await member.roles.add(role);
-              await interaction.editReply({ content: '✅ Assigned your verified role!' });
+              await interaction.editReply({ content: `✅ Assigned you ${role.name} role!` });
               return;
             } catch (err) {
               logger.error('Failed to re-add verified role:', err);

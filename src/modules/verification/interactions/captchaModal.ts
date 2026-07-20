@@ -6,7 +6,7 @@ import { buildEmbed } from '../../../services/embedBuilder.js';
 import COLORS from '../../../utils/colors.js';
 
 const captchaModalHandler: ModalHandler = {
-  customId: 'captcha_modal',
+  customId: /^captcha_modal:answer:\d+$/,
   async execute(interaction: ModalSubmitInteraction) {
     try {
       const customId = interaction.customId; // format: captcha_modal:answer:12

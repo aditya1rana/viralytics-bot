@@ -15,6 +15,7 @@ import COLORS from '../../../utils/colors.js';
 import { verificationService } from '../services/verificationService.js';
 import { VerificationStatus } from '@prisma/client';
 import logger from '../../../services/logger.js';
+import { ensureUser, ensureMember } from '../../../utils/helpers.js';
 
 const verificationCommand: Command = {
   data: new SlashCommandBuilder()
@@ -129,6 +130,9 @@ const verificationCommand: Command = {
           await interaction.editReply({ content: 'Member not found in this guild.' });
           return;
         }
+
+        await ensureUser(member);
+        await ensureMember(guildId, user.id);
 
         await prisma.member.update({
           where: { guildId_userId: { guildId, userId: user.id } },

@@ -3,7 +3,7 @@ import prisma from '../../../services/database.js';
 import logger from '../../../services/logger.js';
 import { auditLogger } from '../../../services/auditLogger.js';
 import { VerificationStatus, AuditAction } from '@prisma/client';
-import { accountAgeDays } from '../../../utils/helpers.js';
+import { accountAgeDays, ensureUser, ensureMember } from '../../../utils/helpers.js';
 import { xpService } from '../../xp/services/xpService.js';
 
 export const verificationService = {
@@ -11,6 +11,10 @@ export const verificationService = {
     try {
       const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
       if (!config) return false;
+
+      // Make sure the User and Member exist in the database before updating status
+      await ensureUser(member);
+      await ensureMember(guild.id, member.id);
 
       await prisma.member.update({
         where: { guildId_userId: { guildId: guild.id, userId: member.id } },

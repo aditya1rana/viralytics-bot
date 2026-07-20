@@ -16,13 +16,36 @@ const verifyButtonHandler: ButtonHandler = {
         return;
       }
 
+      const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
       const isVerified = await verificationService.isVerified(guild.id, interaction.user.id);
+
       if (isVerified) {
+        const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+        
+        // If they are verified in database but do not have the Discord role, try to assign it
+        if (member && config?.verifiedRoleId && !member.roles.cache.has(config.verifiedRoleId)) {
+          await interaction.deferReply({ ephemeral: true });
+          const role = guild.roles.cache.get(config.verifiedRoleId);
+          
+          if (role) {
+            try {
+              await member.roles.add(role);
+              await interaction.editReply({ content: '✅ Assigned your verified role!' });
+              return;
+            } catch (err) {
+              logger.error('Failed to re-add verified role:', err);
+              await interaction.editReply({ 
+                content: '❌ Failed to assign the role. Please make sure the bot\'s role (`Viralytics Bot`) is positioned **ABOVE** your verified role in your Server Settings -> Roles list.' 
+              });
+              return;
+            }
+          }
+        }
+        
         await interaction.reply({ content: 'You are already verified!', ephemeral: true });
         return;
       }
 
-      const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
       const captchaEnabled = config?.captchaEnabled ?? false;
 
       if (captchaEnabled) {
@@ -60,6 +83,20 @@ const verifyButtonHandler: ButtonHandler = {
           });
           await interaction.editReply({ embeds: [embed] });
         } else {
+          // Check if it failed because of role assignment permission
+          if (config?.verifiedRoleId) {
+            const role = guild.roles.cache.get(config.verifiedRoleId);
+            if (role) {
+              try {
+                await member.roles.add(role);
+              } catch (e) {
+                await interaction.editReply({ 
+                  content: '❌ Verified in database, but failed to assign the role. Please make sure the bot\'s role (`Viralytics Bot`) is positioned **ABOVE** your verified role in your Server Settings -> Roles list.' 
+                });
+                return;
+              }
+            }
+          }
           await interaction.editReply({ content: 'An error occurred during verification. Please contact a staff member.' });
         }
       }

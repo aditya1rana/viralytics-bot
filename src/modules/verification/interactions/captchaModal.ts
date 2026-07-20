@@ -1,6 +1,7 @@
 import { ModalSubmitInteraction } from 'discord.js';
 import { ModalHandler } from '../../../types/index.js';
 import { verificationService } from '../services/verificationService.js';
+import prisma from '../../../services/database.js';
 import logger from '../../../services/logger.js';
 import { buildEmbed } from '../../../services/embedBuilder.js';
 import COLORS from '../../../utils/colors.js';
@@ -36,6 +37,27 @@ const captchaModalHandler: ModalHandler = {
         });
         await interaction.editReply({ embeds: [embed] });
       } else {
+        const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
+        if (config?.verifiedRoleId) {
+          const role = guild.roles.cache.get(config.verifiedRoleId);
+          if (role) {
+            try {
+              await member.roles.add(role);
+              const embed = buildEmbed({
+                title: '✅ Verification Successful',
+                description: 'You solved the captcha and have been verified!',
+                color: COLORS.SUCCESS
+              });
+              await interaction.editReply({ embeds: [embed] });
+              return;
+            } catch (e) {
+              await interaction.editReply({ 
+                content: '❌ Solved captcha, but failed to assign the role. Please make sure the bot\'s role (`Viralytics Bot`) is positioned **ABOVE** your verified role in your Server Settings -> Roles list.' 
+              });
+              return;
+            }
+          }
+        }
         await interaction.editReply({ content: 'An error occurred while verifying you. Please contact staff.' });
       }
 

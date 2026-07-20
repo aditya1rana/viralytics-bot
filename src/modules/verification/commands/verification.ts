@@ -1,4 +1,13 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, ChannelType } from 'discord.js';
+import { 
+  SlashCommandBuilder, 
+  ChatInputCommandInteraction, 
+  PermissionFlagsBits, 
+  ChannelType,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
+  TextChannel
+} from 'discord.js';
 import { Command } from '../../../types/index.js';
 import prisma from '../../../services/database.js';
 import { buildEmbed } from '../../../services/embedBuilder.js';
@@ -60,6 +69,42 @@ const verificationCommand: Command = {
           update: updateData,
           create: { guildId, ...updateData }
         });
+
+        // Send a persistent verification panel message to the designated channel if configured
+        if (channel) {
+          const verifyBtn = new ButtonBuilder()
+            .setCustomId('verify_start')
+            .setLabel('Verify Now')
+            .setEmoji('🛡️')
+            .setStyle(ButtonStyle.Success);
+
+          const row = new ActionRowBuilder<ButtonBuilder>().addComponents(verifyBtn);
+
+          const channelEmbed = buildEmbed({
+            title: `🛡️ Verify Your Account`,
+            description: `Welcome to **${interaction.guild!.name}**!\n\nTo gain full access to the server, click the **Verify Now** button below to complete verification.`,
+            color: COLORS.SUCCESS,
+            thumbnail: interaction.guild!.iconURL() ?? undefined
+          });
+
+          const targetChannel = channel as TextChannel;
+          
+          // Clear previous verification messages sent by the bot in that channel if possible to avoid clutter
+          try {
+            const messages = await targetChannel.messages.fetch({ limit: 50 });
+            const botMessages = messages.filter(m => m.author.id === interaction.client.user.id && m.embeds.some(e => e.title?.includes('Verify Your Account')));
+            if (botMessages.size > 0) {
+              await targetChannel.bulkDelete(botMessages).catch(() => null);
+            }
+          } catch (e) {
+            // Ignore if bulk delete or fetching fails due to missing permissions
+          }
+
+          await targetChannel.send({
+            embeds: [channelEmbed],
+            components: [row]
+          });
+        }
 
         const embed = buildEmbed({
           title: '✅ Verification Setup Complete',

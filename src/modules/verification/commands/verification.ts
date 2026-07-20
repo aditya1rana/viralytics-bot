@@ -35,6 +35,10 @@ const verificationCommand: Command = {
     const subcommand = interaction.options.getSubcommand();
     const guildId = interaction.guildId!;
 
+    // Defer the reply to give the database connection and queries time to complete
+    const isEphemeral = subcommand === 'setup' || subcommand === 'reset';
+    await interaction.deferReply({ ephemeral: isEphemeral });
+
     try {
       if (subcommand === 'setup') {
         const channel = interaction.options.getChannel('channel') ?? null;
@@ -70,14 +74,14 @@ const verificationCommand: Command = {
           ]
         });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.editReply({ embeds: [embed] });
       } 
       else if (subcommand === 'reset') {
         const user = interaction.options.getUser('user', true);
         const member = await interaction.guild?.members.fetch(user.id).catch(() => null);
 
         if (!member) {
-          await interaction.reply({ content: 'Member not found in this guild.', ephemeral: true });
+          await interaction.editReply({ content: 'Member not found in this guild.' });
           return;
         }
 
@@ -92,7 +96,7 @@ const verificationCommand: Command = {
           if (config.unverifiedRoleId) await member.roles.add(config.unverifiedRoleId).catch(() => null);
         }
 
-        await interaction.reply({ content: `✅ Verification reset for <@${user.id}>.`, ephemeral: true });
+        await interaction.editReply({ content: `✅ Verification reset for <@${user.id}>.` });
       } 
       else if (subcommand === 'stats') {
         const stats = await verificationService.getVerificationStats(guildId);
@@ -119,11 +123,11 @@ const verificationCommand: Command = {
           ]
         });
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
       }
     } catch (error) {
       logger.error('Error in verification command:', error);
-      await interaction.reply({ content: 'An error occurred while executing the command.', ephemeral: true }).catch(() => null);
+      await interaction.editReply({ content: 'An error occurred while executing the command.' }).catch(() => null);
     }
   }
 };

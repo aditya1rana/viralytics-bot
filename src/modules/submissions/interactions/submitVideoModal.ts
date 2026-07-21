@@ -41,7 +41,7 @@ const submitVideoModalHandler: ModalHandler = {
       }
 
       // Find any active campaign for this guild (use the first active one)
-      const campaign = await prisma.campaign.findFirst({
+      let campaign = await prisma.campaign.findFirst({
         where: {
           guildId,
           status: 'ACTIVE',
@@ -50,8 +50,25 @@ const submitVideoModalHandler: ModalHandler = {
       });
 
       if (!campaign) {
-        await interaction.editReply({ content: '❌ No active campaign found. Please contact an admin.' });
-        return;
+        // Fallback or auto-create a default campaign
+        campaign = await prisma.campaign.findFirst({
+          where: {
+            guildId,
+            name: 'General Submissions',
+          }
+        });
+
+        if (!campaign) {
+          campaign = await prisma.campaign.create({
+            data: {
+              guildId,
+              name: 'General Submissions',
+              description: 'Automatically created campaign for general submissions.',
+              status: 'ACTIVE',
+              createdBy: userId,
+            }
+          });
+        }
       }
 
       // Process each link

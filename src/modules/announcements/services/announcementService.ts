@@ -44,7 +44,12 @@ export const sendAnnouncement = async (client: Client, announcement: any) => {
         }
 
         const content = announcement.mentionRoles && announcement.mentionRoles.length > 0 
-            ? announcement.mentionRoles.map((rId: string) => `<@&${rId}>`).join(' ') 
+            ? announcement.mentionRoles.map((rId: string) => {
+                if (rId === announcement.guildId) {
+                    return '@everyone';
+                }
+                return `<@&${rId}>`;
+            }).join(' ') 
             : undefined;
 
         const sentMessage = await channel.send({ content, embeds: [embed] });

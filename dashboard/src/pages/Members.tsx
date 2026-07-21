@@ -13,8 +13,8 @@ export default function Members() {
       setLoading(true);
       api.getMembers(page, search)
         .then(data => {
-          setMembers(data.members || []);
-          setTotalPages(data.totalPages || 1);
+          setMembers(data.data || []);
+          setTotalPages(Math.ceil(data.total / data.limit) || 1);
         })
         .catch(console.error)
         .finally(() => setLoading(false));

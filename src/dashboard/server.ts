@@ -155,7 +155,74 @@ export function createDashboardApp() {
       const guildConfig = await prisma.guildConfig.findUnique({
         where: { guildId: '1520755756800933938' },
       });
-      res.json(guildConfig || {});
+      if (!guildConfig) {
+        res.json({});
+        return;
+      }
+      
+      const grouped = {
+        General: {
+          prefix: guildConfig.prefix,
+          language: guildConfig.language,
+          timezone: guildConfig.timezone,
+        },
+        Roles: {
+          verifiedRoleId: guildConfig.verifiedRoleId,
+          unverifiedRoleId: guildConfig.unverifiedRoleId,
+          mutedRoleId: guildConfig.mutedRoleId,
+          modRoleId: guildConfig.modRoleId,
+          adminRoleId: guildConfig.adminRoleId,
+          clipperRoleId: guildConfig.clipperRoleId,
+        },
+        Channels: {
+          welcomeChannelId: guildConfig.welcomeChannelId,
+          verificationChannelId: guildConfig.verificationChannelId,
+          submissionChannelId: guildConfig.submissionChannelId,
+          leaderboardChannelId: guildConfig.leaderboardChannelId,
+          ticketCategoryId: guildConfig.ticketCategoryId,
+          verificationLogChannelId: guildConfig.verificationLogChannelId,
+          ticketLogChannelId: guildConfig.ticketLogChannelId,
+          submissionLogChannelId: guildConfig.submissionLogChannelId,
+          duplicateLogChannelId: guildConfig.duplicateLogChannelId,
+          moderationLogChannelId: guildConfig.moderationLogChannelId,
+          campaignLogChannelId: guildConfig.campaignLogChannelId,
+          errorLogChannelId: guildConfig.errorLogChannelId,
+          staffActionLogChannelId: guildConfig.staffActionLogChannelId,
+        },
+        Verification: {
+          minAccountAgeDays: guildConfig.minAccountAgeDays,
+          altDetectionEnabled: guildConfig.altDetectionEnabled,
+          verificationEnabled: guildConfig.verificationEnabled,
+          captchaEnabled: guildConfig.captchaEnabled,
+        },
+        XP: {
+          xpPerMessage: guildConfig.xpPerMessage,
+          xpPerSubmission: guildConfig.xpPerSubmission,
+          xpPerVerification: guildConfig.xpPerVerification,
+          xpCooldownSeconds: guildConfig.xpCooldownSeconds,
+          levelUpAnnouncementEnabled: guildConfig.levelUpAnnouncementEnabled,
+        },
+        Submissions: {
+          maxDailySubmissions: guildConfig.maxDailySubmissions,
+          duplicateCheckEnabled: guildConfig.duplicateCheckEnabled,
+          autoApproveEnabled: guildConfig.autoApproveEnabled,
+        },
+        Moderation: {
+          autoModEnabled: guildConfig.autoModEnabled,
+          maxWarnsBeforeMute: guildConfig.maxWarnsBeforeMute,
+          maxWarnsBeforeBan: guildConfig.maxWarnsBeforeBan,
+          muteDefaultMinutes: guildConfig.muteDefaultMinutes,
+          timeoutDefaultMinutes: guildConfig.timeoutDefaultMinutes,
+          antiRaidEnabled: guildConfig.antiRaidEnabled,
+          antiSpamEnabled: guildConfig.antiSpamEnabled,
+          antiScamEnabled: guildConfig.antiScamEnabled,
+        },
+        Payouts: {
+          defaultCurrency: guildConfig.defaultCurrency,
+        }
+      };
+
+      res.json(grouped);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -165,10 +232,19 @@ export function createDashboardApp() {
   app.post('/api/config', authMiddleware, async (req, res) => {
     try {
       const data = req.body;
+      const flatData: any = {};
+      for (const section of Object.values(data)) {
+        if (typeof section === 'object' && section !== null) {
+          for (const [key, val] of Object.entries(section)) {
+            flatData[key] = val;
+          }
+        }
+      }
+
       const guildConfig = await prisma.guildConfig.upsert({
         where: { guildId: '1520755756800933938' },
-        update: data,
-        create: { guildId: '1520755756800933938', ...data },
+        update: flatData,
+        create: { guildId: '1520755756800933938', ...flatData },
       });
       res.json(guildConfig);
     } catch (error) {

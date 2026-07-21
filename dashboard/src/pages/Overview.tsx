@@ -22,10 +22,10 @@ export default function Overview() {
   if (error) return <div style={{ color: 'var(--error)' }}>Error: {error}</div>;
 
   const kpis = [
-    { label: 'Total Members', value: stats?.totalMembers || 0, icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75', color: 'var(--primary)' },
-    { label: 'Verified Members', value: stats?.verifiedMembers || 0, icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4L12 14.01l-3-3', color: 'var(--success)' },
-    { label: 'Active Campaigns', value: stats?.activeCampaigns || 0, icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z', color: 'var(--warning)' },
-    { label: 'Total Submissions', value: stats?.totalSubmissions || 0, icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8', color: 'hsl(300, 70%, 60%)' },
+    { label: 'Total Members', value: stats?.members?.total || 0, icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75', color: 'var(--primary)' },
+    { label: 'Verified Members', value: stats?.members?.verified || 0, icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4L12 14.01l-3-3', color: 'var(--success)' },
+    { label: 'Active Campaigns', value: stats?.campaigns?.active || 0, icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z', color: 'var(--warning)' },
+    { label: 'Total Submissions', value: stats?.submissions?.total || 0, icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8', color: 'hsl(300, 70%, 60%)' },
   ];
 
   return (

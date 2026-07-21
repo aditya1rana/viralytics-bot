@@ -58,26 +58,26 @@ export default function Members() {
               ) : (
                 members.map(member => (
                   <tr key={member.id}>
-                    <td style={{ fontFamily: 'monospace' }}>{member.discordId}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{member.userId}</td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{
                           width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold'
                         }}>
-                          {(member.username || '?')[0].toUpperCase()}
+                          {(member.user?.username || '?')[0].toUpperCase()}
                         </div>
-                        {member.username}
+                        {member.user?.username || 'Unknown'}
                       </div>
                     </td>
                     <td>
-                      {member.isVerified ? 
+                      {member.verificationStatus === 'VERIFIED' ? 
                         <span className="badge active">Verified</span> : 
                         <span className="badge error">Unverified</span>
                       }
                     </td>
-                    <td>{member.xp || 0} XP (Lvl {member.level || 1})</td>
-                    <td>{member.submissionCount || 0}</td>
+                    <td>{member.totalXp || 0} XP (Lvl {member.level || 0})</td>
+                    <td>{member.totalSubmissions || 0}</td>
                   </tr>
                 ))
               )}

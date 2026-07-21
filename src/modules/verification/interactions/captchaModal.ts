@@ -49,6 +49,7 @@ const captchaModalHandler: ModalHandler = {
                 color: COLORS.SUCCESS
               });
               await interaction.editReply({ embeds: [embed] });
+              await verificationService.logVerification(guild, member);
               return;
             } catch (e) {
               await interaction.editReply({ 

@@ -31,6 +31,7 @@ const verifyButtonHandler: ButtonHandler = {
             try {
               await member.roles.add(role);
               await interaction.editReply({ content: `✅ Assigned you ${role.name} role!` });
+              await verificationService.logVerification(guild, member);
               return;
             } catch (err) {
               logger.error('Failed to re-add verified role:', err);

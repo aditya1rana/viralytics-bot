@@ -8,6 +8,31 @@ import { xpService } from '../../xp/services/xpService.js';
 import COLORS from '../../../utils/colors.js';
 
 export const verificationService = {
+  async logVerification(guild: Guild, member: GuildMember) {
+    try {
+      const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
+      if (config?.verificationLogChannelId) {
+        const logChannel = guild.channels.cache.get(config.verificationLogChannelId) as TextChannel | undefined;
+        if (logChannel) {
+          const logEmbed = new EmbedBuilder()
+            .setTitle('👤 Member Verified')
+            .setColor(COLORS.SUCCESS)
+            .setThumbnail(member.user.displayAvatarURL())
+            .addFields(
+              { name: 'User', value: `<@${member.id}> (${member.user.username})`, inline: true },
+              { name: 'User ID', value: `\`${member.id}\``, inline: true },
+              { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R> (${accountAgeDays(member.user.createdAt)} days ago)`, inline: false },
+              { name: 'Verified At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
+            )
+            .setTimestamp();
+          await logChannel.send({ embeds: [logEmbed] }).catch(e => logger.error(`Failed to send log to verification log channel:`, e));
+        }
+      }
+    } catch (e) {
+      logger.error('Error logging verification:', e);
+    }
+  },
+
   async verifyMember(guild: Guild, member: GuildMember, verifiedBy?: string) {
     try {
       const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
@@ -33,23 +58,7 @@ export const verificationService = {
       }
 
       // Log to verification log channel
-      if (config.verificationLogChannelId) {
-        const logChannel = guild.channels.cache.get(config.verificationLogChannelId) as TextChannel | undefined;
-        if (logChannel) {
-          const logEmbed = new EmbedBuilder()
-            .setTitle('👤 Member Verified')
-            .setColor(COLORS.SUCCESS)
-            .setThumbnail(member.user.displayAvatarURL())
-            .addFields(
-              { name: 'User', value: `<@${member.id}> (${member.user.username})`, inline: true },
-              { name: 'User ID', value: `\`${member.id}\``, inline: true },
-              { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R> (${accountAgeDays(member.user.createdAt)} days ago)`, inline: false },
-              { name: 'Verified At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
-            )
-            .setTimestamp();
-          await logChannel.send({ embeds: [logEmbed] }).catch(e => logger.error(`Failed to send log to verification log channel:`, e));
-        }
-      }
+      await this.logVerification(guild, member);
 
       await auditLogger({
         guildId: guild.id,

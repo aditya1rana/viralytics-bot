@@ -10,6 +10,7 @@ RUN npm ci
 
 COPY tsconfig.json ./
 COPY src ./src/
+COPY dashboard ./dashboard/
 
 RUN npx prisma generate
 RUN npm run build
@@ -22,6 +23,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dashboard/dist ./dashboard/dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma

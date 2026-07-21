@@ -66,17 +66,19 @@ const command: Command = {
                 const mentionRole = interaction.options.getRole('mention-role');
                 const schedule = interaction.options.getString('schedule');
 
+                // Defer reply immediately to prevent 3-second Discord timeout
+                await interaction.deferReply({ ephemeral: true });
+
                 let scheduledAt: Date | null = null;
                 if (schedule) {
                     scheduledAt = parseISTDate(schedule);
                     if (!scheduledAt) {
-                        await interaction.reply({
+                        await interaction.editReply({
                             embeds: [buildEmbed({ 
                                 title: 'Error', 
                                 description: 'Invalid schedule date format. Please use `DD-MM-YYYY hh:mm AM/PM` (e.g. `25-07-2026 2:30 PM`) or just `hh:mm AM/PM` (e.g. `2:30 PM` for today).', 
                                 color: COLORS.ERROR 
-                            })],
-                            ephemeral: true
+                            })]
                         });
                         return;
                     }
@@ -98,12 +100,10 @@ const command: Command = {
                 const announcement = await createAnnouncement(data);
 
                 if (scheduledAt) {
-                    await interaction.reply({
-                        embeds: [buildEmbed({ title: 'Success', description: `Announcement scheduled for <t:${Math.floor(scheduledAt.getTime() / 1000)}:f>.`, color: COLORS.SUCCESS })],
-                        ephemeral: true
+                    await interaction.editReply({
+                        embeds: [buildEmbed({ title: 'Success', description: `Announcement scheduled for <t:${Math.floor(scheduledAt.getTime() / 1000)}:f>.`, color: COLORS.SUCCESS })]
                     });
                 } else {
-                    await interaction.deferReply({ ephemeral: true });
                     const sent = await sendAnnouncement(interaction.client, announcement);
                     if (sent) {
                         await interaction.editReply({

@@ -4,6 +4,16 @@ import { api } from '../api';
 export default function Campaigns() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreator, setShowCreator] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    payPerApprovedClip: 0,
+    allowedPlatforms: [] as string[],
+    guidelines: ''
+  });
+
+  const PLATFORMS = ['INSTAGRAM_REELS', 'TIKTOK', 'YOUTUBE_SHORTS', 'FACEBOOK_REELS', 'X_VIDEOS', 'THREADS'];
 
   const fetchCampaigns = () => {
     setLoading(true);
@@ -27,6 +37,31 @@ export default function Campaigns() {
     }
   };
 
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.createCampaign({
+        ...formData,
+        payPerApprovedClip: Number(formData.payPerApprovedClip)
+      });
+      alert('Campaign created successfully!');
+      setShowCreator(false);
+      setFormData({ name: '', description: '', payPerApprovedClip: 0, allowedPlatforms: [], guidelines: '' });
+      fetchCampaigns();
+    } catch (err: any) {
+      alert(err.message || 'Failed to create campaign');
+    }
+  };
+
+  const togglePlatform = (platform: string) => {
+    setFormData(prev => ({
+      ...prev,
+      allowedPlatforms: prev.allowedPlatforms.includes(platform)
+        ? prev.allowedPlatforms.filter(p => p !== platform)
+        : [...prev.allowedPlatforms, platform]
+    }));
+  };
+
   const getStatusBadge = (status: string) => {
     const s = status.toLowerCase();
     if (s === 'active') return <span className="badge active">Active</span>;
@@ -38,8 +73,55 @@ export default function Campaigns() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1>Campaigns</h1>
-        <button onClick={fetchCampaigns}>Refresh</button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button onClick={() => setShowCreator(!showCreator)} style={{ background: 'var(--primary)', color: 'white' }}>
+            {showCreator ? 'Cancel' : 'Create Campaign'}
+          </button>
+          <button onClick={fetchCampaigns}>Refresh</button>
+        </div>
       </div>
+
+      {showCreator && (
+        <form onSubmit={handleCreateSubmit} className="glass-card" style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h3>Create New Campaign</h3>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label>Name</label>
+            <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Campaign Name" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'white' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label>Description</label>
+            <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Description" rows={3} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'white' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label>Pay Per Approved Clip ($)</label>
+            <input required type="number" step="0.01" min="0" value={formData.payPerApprovedClip} onChange={e => setFormData({...formData, payPerApprovedClip: Number(e.target.value)})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'white' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label>Allowed Platforms</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+              {PLATFORMS.map(platform => (
+                <label key={platform} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={formData.allowedPlatforms.includes(platform)} onChange={() => togglePlatform(platform)} />
+                  {platform}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label>Guidelines</label>
+            <textarea required value={formData.guidelines} onChange={e => setFormData({...formData, guidelines: e.target.value})} placeholder="Guidelines" rows={4} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', color: 'white' }} />
+          </div>
+
+          <button type="submit" style={{ background: 'var(--success)', color: 'white', marginTop: '12px' }}>
+            Submit Campaign
+          </button>
+        </form>
+      )}
 
       {loading ? (
         <div>Loading campaigns...</div>

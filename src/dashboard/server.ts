@@ -4,6 +4,8 @@ import { prisma } from '../services/database.js';
 import { config } from '../config.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { submissionService } from '../modules/submissions/services/submissionService.js';
+import { payoutService } from '../modules/payouts/services/payoutService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -322,6 +324,131 @@ export function createDashboardApp() {
       ]);
 
       res.json({ data: members, total, page, limit });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/campaigns
+  app.post('/api/campaigns', authMiddleware, async (req, res) => {
+    try {
+      const { name, description, payPerApproved, platforms, guidelines } = req.body;
+      const campaign = await prisma.campaign.create({
+        data: {
+          guildId,
+          name,
+          description,
+          payPerApproved: payPerApproved ? parseFloat(payPerApproved) : null,
+          platforms: platforms || [],
+          guidelines,
+          status: 'ACTIVE',
+          createdBy: 'Dashboard',
+        }
+      });
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/submissions/pending
+  app.get('/api/submissions/pending', authMiddleware, async (req, res) => {
+    try {
+      const submissions = await prisma.submission.findMany({
+        where: { guildId, status: 'PENDING' },
+        include: { user: true, campaign: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      res.json(submissions);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/submissions/:id/approve
+  app.post('/api/submissions/:id/approve', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const submission = await submissionService.approveSubmission(id as string, 'Dashboard');
+      res.json({ success: true, submission });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to approve submission' });
+    }
+  });
+
+  // POST /api/submissions/:id/reject
+  app.post('/api/submissions/:id/reject', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const submission = await submissionService.rejectSubmission(id as string, 'Dashboard', reason);
+      res.json({ success: true, submission });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to reject submission' });
+    }
+  });
+
+  // GET /api/payouts
+  app.get('/api/payouts', authMiddleware, async (req, res) => {
+    try {
+      const payouts = await prisma.payout.findMany({
+        where: { guildId },
+        include: { user: true, campaign: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      res.json(payouts);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/payouts/calculate
+  app.post('/api/payouts/calculate', authMiddleware, async (req, res) => {
+    try {
+      const { campaignId } = req.body;
+      const createdCount = await payoutService.calculatePayouts(campaignId);
+      res.json({ success: true, createdCount });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to calculate payouts' });
+    }
+  });
+
+  // POST /api/payouts/:id/pay
+  app.post('/api/payouts/:id/pay', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await payoutService.approvePayout(id as string, 'Dashboard');
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to process payout' });
+    }
+  });
+
+  // GET /api/stats/activity
+  app.get('/api/stats/activity', authMiddleware, async (req, res) => {
+    try {
+      const activity = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateString = date.toISOString().split('T')[0];
+        
+        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+        
+        const count = await prisma.submission.count({
+          where: {
+            guildId,
+            createdAt: {
+              gte: startOfDay,
+              lte: endOfDay,
+            }
+          }
+        });
+        
+        activity.push({ date: dateString, count });
+      }
+      res.json(activity);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

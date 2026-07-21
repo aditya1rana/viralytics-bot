@@ -49,9 +49,26 @@ export const api = {
   }),
   getLogs: (type: string, page = 1) => fetchWithAuth(`/logs?type=${type}&page=${page}`),
   getCampaigns: () => fetchWithAuth('/campaigns'),
+  createCampaign: (campaign: any) => fetchWithAuth('/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(campaign),
+  }),
   updateCampaignStatus: (id: string, status: string) => fetchWithAuth(`/campaigns/${id}/status`, {
     method: 'POST',
     body: JSON.stringify({ status }),
   }),
   getMembers: (page = 1, search = '') => fetchWithAuth(`/members?page=${page}&search=${encodeURIComponent(search)}`),
+  getPendingSubmissions: () => fetchWithAuth('/submissions/pending'),
+  approveSubmission: (id: string) => fetchWithAuth(`/submissions/${id}/approve`, { method: 'POST' }),
+  rejectSubmission: (id: string, reason: string) => fetchWithAuth(`/submissions/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  }),
+  getPayouts: () => fetchWithAuth('/payouts'),
+  calculatePayouts: (campaignId: string) => fetchWithAuth('/payouts/calculate', {
+    method: 'POST',
+    body: JSON.stringify({ campaignId }),
+  }),
+  payPayout: (id: string) => fetchWithAuth(`/payouts/${id}/pay`, { method: 'POST' }),
+  getActivityStats: () => fetchWithAuth('/stats/activity'),
 };

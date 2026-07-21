@@ -5,6 +5,8 @@ import ConfigEditor from './ConfigEditor';
 import Logs from './Logs';
 import Campaigns from './Campaigns';
 import Members from './Members';
+import { Moderation } from './Moderation';
+import { Payouts } from './Payouts';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -21,6 +23,8 @@ export default function Dashboard() {
     { path: '/campaigns', label: 'Campaigns', icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
     { path: '/logs', label: 'Logs', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8' },
     { path: '/members', label: 'Members', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75' },
+    { path: '/moderation', label: 'Moderation', icon: 'M9.172 16.172a4 4 0 0 1 5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
+    { path: '/payouts', label: 'Payouts', icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
   ];
 
   return (
@@ -103,6 +107,8 @@ export default function Dashboard() {
             <Route path="/logs" element={<Logs />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/members" element={<Members />} />
+            <Route path="/moderation" element={<Moderation />} />
+            <Route path="/payouts" element={<Payouts />} />
           </Routes>
         </div>
       </div>

@@ -3,13 +3,15 @@ import { api } from '../api';
 
 export default function Overview() {
   const [stats, setStats] = useState<any>(null);
+  const [activityStats, setActivityStats] = useState<{date: string, count: number}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.getStats()
-      .then(data => {
-        setStats(data);
+    Promise.all([api.getStats(), api.getActivityStats()])
+      .then(([statsData, activityData]) => {
+        setStats(statsData);
+        setActivityStats(activityData || []);
         setLoading(false);
       })
       .catch(err => {
@@ -64,12 +66,67 @@ export default function Overview() {
       </div>
 
       <div className="glass-card">
-        <h3>Recent System Activity</h3>
-        <p>System is online and running smoothly.</p>
-        {/* Placeholder for chart or recent logs */}
-        <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--glass-border)', borderRadius: '8px', marginTop: '16px' }}>
-          <p>Activity Chart (Coming soon)</p>
-        </div>
+        <h3>Recent System Activity (Submissions)</h3>
+        {activityStats.length > 0 ? (
+          <div style={{ position: 'relative', height: '200px', marginTop: '32px', marginBottom: '24px' }}>
+            <svg width="100%" height="200px" viewBox="0 0 500 200" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+              <defs>
+                <linearGradient id="line-gradient" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="var(--primary)" />
+                  <stop offset="100%" stopColor="#a855f7" />
+                </linearGradient>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                  <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+              
+              {(() => {
+                const maxCount = Math.max(...activityStats.map(d => d.count), 10);
+                const getPoints = () => activityStats.map((d, i) => {
+                  const x = (i / (activityStats.length - 1 || 1)) * 500;
+                  const y = 180 - (d.count / maxCount) * 160;
+                  return { x, y, count: d.count, date: d.date };
+                });
+                
+                const points = getPoints();
+                const pathD = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
+                
+                return (
+                  <>
+                    <path
+                      d={pathD}
+                      fill="none"
+                      stroke="url(#line-gradient)"
+                      strokeWidth="4"
+                      filter="url(#glow)"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {points.map((p, i) => (
+                      <g key={i} className="chart-point">
+                        <circle cx={p.x} cy={p.y} r="6" fill="#1e1e2e" stroke="var(--primary)" strokeWidth="3" filter="url(#glow)" />
+                        <text x={p.x} y={p.y - 15} fill="white" fontSize="12" textAnchor="middle" fontWeight="bold">
+                          {p.count}
+                        </text>
+                        <text x={p.x} y={198} fill="var(--text-secondary)" fontSize="10" textAnchor="middle">
+                          {new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </text>
+                      </g>
+                    ))}
+                  </>
+                );
+              })()}
+            </svg>
+          </div>
+        ) : (
+          <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--glass-border)', borderRadius: '8px', marginTop: '16px' }}>
+            <p>No activity data available.</p>
+          </div>
+        )}
       </div>
     </div>
   );

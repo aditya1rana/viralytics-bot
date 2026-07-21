@@ -10,6 +10,7 @@ const invitesCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('invites')
     .setDescription('Manage and view invite statistics.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand(subcommand =>
       subcommand
         .setName('check')

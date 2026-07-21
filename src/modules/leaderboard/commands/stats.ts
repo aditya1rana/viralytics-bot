@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { Command } from '../../../types/index.js';
 import { getServerStats } from '../services/leaderboardService.js';
 import logger from '../../../services/logger.js';
@@ -7,7 +7,8 @@ import colors from '../../../utils/colors.js';
 const command: Command = {
     data: new SlashCommandBuilder()
         .setName('stats')
-        .setDescription('View server-wide statistics'),
+        .setDescription('View server-wide statistics')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction: ChatInputCommandInteraction) {
         try {
             await interaction.deferReply();

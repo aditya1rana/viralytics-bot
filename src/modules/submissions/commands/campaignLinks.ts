@@ -10,6 +10,7 @@ const campaignLinksCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('campaign-links')
     .setDescription('View submissions for a specific campaign (Admin only)')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(option => 
       option.setName('campaign')
         .setDescription('The exact campaign name')

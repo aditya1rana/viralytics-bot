@@ -1,61 +1,82 @@
-import { ActionRowBuilder, ModalBuilder, SlashCommandBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
+import { 
+  SlashCommandBuilder, 
+  PermissionFlagsBits, 
+  ChatInputCommandInteraction,
+  ChannelType,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
+  EmbedBuilder,
+  TextChannel
+} from 'discord.js';
 import { Command } from '../../../types/index.js';
-import { ensureGuild, ensureMember, ensureUser } from '../../../utils/helpers.js';
 import { logger } from '../../../services/logger.js';
+import { configService } from '../../config/services/configService.js';
+import COLORS from '../../../utils/colors.js';
 
 const submitCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('submit')
-    .setDescription('Submit a video link for a campaign')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDescription('Manage the video submission system')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addSubcommand(sub => sub
+      .setName('panel')
+      .setDescription('Post a submission panel in the current channel')
+    )
+    .addSubcommand(sub => sub
+      .setName('set-log-channel')
+      .setDescription('Set the channel where submission logs are sent')
+      .addChannelOption(opt => opt
+        .setName('channel')
+        .setDescription('The channel for link logs')
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(true)
+      )
+    ) as SlashCommandBuilder,
 
-  async execute(interaction) {
+  async execute(interaction: ChatInputCommandInteraction) {
+    if (!interaction.guild) return;
+
+    const subcommand = interaction.options.getSubcommand();
+    const guildId = interaction.guildId!;
+
     try {
-      if (!interaction.guild) {
-        await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
-        return;
+      if (subcommand === 'panel') {
+        // Build the submission panel embed
+        const panelEmbed = new EmbedBuilder()
+          .setTitle('📎 Video Submissions')
+          .setDescription('Submit your video links using the button below.\nYou can submit up to **100 links at once** — one per line.')
+          .setColor(COLORS.primary)
+          .setFooter({ text: 'Paste your links in the popup form' });
+
+        const submitButton = new ButtonBuilder()
+          .setCustomId('submit_video_start')
+          .setLabel('Submit Video')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📤');
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(submitButton);
+
+        // Send the panel to the current channel
+        await (interaction.channel as TextChannel).send({ embeds: [panelEmbed], components: [row] });
+        await interaction.reply({ content: '✅ Submission panel posted!', ephemeral: true });
+
+      } else if (subcommand === 'set-log-channel') {
+        await interaction.deferReply({ ephemeral: true });
+
+        const channel = interaction.options.getChannel('channel', true);
+        await configService.setChannel(guildId, 'submissionLogChannelId', channel.id);
+
+        await interaction.editReply({
+          content: `✅ Submission logs will now be sent to <#${channel.id}>.`
+        });
       }
-
-      await ensureUser(interaction.member as any);
-      await ensureGuild(interaction.guild);
-      await ensureMember(interaction.guild.id, interaction.user.id);
-
-      const modal = new ModalBuilder()
-        .setCustomId('submit_link_modal')
-        .setTitle('Submit Video Link');
-
-      const campaignInput = new TextInputBuilder()
-        .setCustomId('campaign_name')
-        .setLabel('Campaign Name')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Enter the exact campaign name')
-        .setRequired(true);
-
-      const videoLinkInput = new TextInputBuilder()
-        .setCustomId('video_link')
-        .setLabel('Video Link')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('https://tiktok.com/... or https://youtube.com/shorts/...')
-        .setRequired(true);
-
-      const notesInput = new TextInputBuilder()
-        .setCustomId('notes')
-        .setLabel('Additional Notes')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Optional notes about your submission')
-        .setRequired(false);
-
-      const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(campaignInput);
-      const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(videoLinkInput);
-      const row3 = new ActionRowBuilder<TextInputBuilder>().addComponents(notesInput);
-
-      modal.addComponents(row1, row2, row3);
-
-      await interaction.showModal(modal);
     } catch (error) {
       logger.error('Error in /submit command:', error);
-      if (interaction.isRepliable() && !interaction.replied) {
-        await interaction.reply({ content: 'An error occurred while opening the submit form.', ephemeral: true });
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: '❌ An error occurred.' });
+      } else {
+        await interaction.reply({ content: '❌ An error occurred.', ephemeral: true });
       }
     }
   }

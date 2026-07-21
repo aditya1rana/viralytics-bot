@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { Command } from '../../../types/index.js';
 import prisma from '../../../services/database.js';
 import { getUserRank } from '../services/leaderboardService.js';
@@ -10,6 +10,7 @@ const command: Command = {
     data: new SlashCommandBuilder()
         .setName('profile')
         .setDescription('View a user\'s profile and stats')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addUserOption(option => 
             option.setName('user')
                 .setDescription('The user to view')

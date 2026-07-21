@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { Command } from '../../../types/index.js';
 import { getLeaderboard } from '../services/leaderboardService.js';
 import { paginate } from '../../../services/pagination.js';
@@ -9,6 +9,7 @@ const command: Command = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
         .setDescription('View the top clippers in the server')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(option =>
             option.setName('period')
                 .setDescription('The time period to view')

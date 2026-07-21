@@ -5,6 +5,7 @@ import prisma from '../../../services/database.js';
 import logger from '../../../services/logger.js';
 import { buildEmbed } from '../../../services/embedBuilder.js';
 import COLORS from '../../../utils/colors.js';
+import { getGuildConfig } from '../../../services/configManager.js';
 
 const verifyButtonHandler: ButtonHandler = {
   customId: 'verify_start',
@@ -16,8 +17,10 @@ const verifyButtonHandler: ButtonHandler = {
         return;
       }
 
-      const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
-      const isVerified = await verificationService.isVerified(guild.id, interaction.user.id);
+      const [config, isVerified] = await Promise.all([
+        getGuildConfig(guild.id),
+        verificationService.isVerified(guild.id, interaction.user.id)
+      ]);
 
       if (isVerified) {
         const member = await guild.members.fetch(interaction.user.id).catch(() => null);

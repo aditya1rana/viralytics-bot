@@ -6,6 +6,7 @@ import { VerificationStatus, AuditAction } from '@prisma/client';
 import { accountAgeDays, ensureUser, ensureMember } from '../../../utils/helpers.js';
 import { xpService } from '../../xp/services/xpService.js';
 import COLORS from '../../../utils/colors.js';
+import { cache } from '../../../services/cache.js';
 
 export const verificationService = {
   async logVerification(guild: Guild, member: GuildMember) {
@@ -71,6 +72,9 @@ export const verificationService = {
       // Give 50 XP for verifying
       await xpService.addXp(guild.id, member.id, 50, 'Completed verification');
 
+      // Invalidate verification cache
+      await cache.del(`member:${guild.id}:${member.id}:verified`);
+
       return true;
     } catch (error) {
       logger.error('Error verifying member:', error);
@@ -79,10 +83,16 @@ export const verificationService = {
   },
 
   async isVerified(guildId: string, userId: string) {
+    const cacheKey = `member:${guildId}:${userId}:verified`;
+    const cached = await cache.get<boolean>(cacheKey);
+    if (cached !== null) return cached;
+
     const member = await prisma.member.findUnique({
       where: { guildId_userId: { guildId, userId } }
     });
-    return member?.verificationStatus === VerificationStatus.VERIFIED;
+    const verified = member?.verificationStatus === VerificationStatus.VERIFIED;
+    await cache.set(cacheKey, verified, 3600); // Cache for 1 hour
+    return verified;
   },
 
   async getVerificationStats(guildId: string) {

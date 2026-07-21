@@ -16,6 +16,7 @@ import { verificationService } from '../services/verificationService.js';
 import { VerificationStatus } from '@prisma/client';
 import logger from '../../../services/logger.js';
 import { ensureUser, ensureMember } from '../../../utils/helpers.js';
+import { cache } from '../../../services/cache.js';
 
 const verificationCommand: Command = {
   data: new SlashCommandBuilder()
@@ -138,6 +139,9 @@ const verificationCommand: Command = {
           where: { guildId_userId: { guildId, userId: user.id } },
           data: { verificationStatus: VerificationStatus.UNVERIFIED }
         });
+
+        // Invalidate cached status
+        await cache.del(`member:${guildId}:${user.id}:verified`);
 
         const config = await prisma.guildConfig.findUnique({ where: { guildId } });
         if (config) {

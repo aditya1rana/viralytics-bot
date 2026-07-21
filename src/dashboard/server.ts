@@ -256,7 +256,7 @@ export function createDashboardApp() {
   app.use(express.static(path.join(__dirname, '..', '..', 'dashboard', 'dist')));
   
   // Catch all to serve frontend
-  app.get('*', (req, res) => {
+  app.get('*all', (req, res) => {
     res.sendFile(path.join(__dirname, '..', '..', 'dashboard', 'dist', 'index.html'));
   });
 

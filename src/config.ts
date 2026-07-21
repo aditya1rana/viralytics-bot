@@ -25,6 +25,7 @@ const envSchema = z.object({
   MIN_ACCOUNT_AGE_DAYS: z.coerce.number().default(7),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(10),
+  DASHBOARD_PASSWORD: z.string().default('admin123'),
 });
 
 const parsed = envSchema.safeParse(process.env);

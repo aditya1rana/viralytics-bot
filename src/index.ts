@@ -34,15 +34,13 @@ async function main() {
     logger.info(`📌 ${client.commands.size} commands loaded`);
   });
 
-  // Start a simple HTTP server to satisfy Render health checks and allow pings
+  // Start Dashboard Express Server
   const port = process.env.PORT || 10000;
-  const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Viralytics Bot is Online!');
-  });
+  const { createDashboardApp } = await import('./dashboard/server.js');
+  const app = createDashboardApp();
   
-  server.listen(port, () => {
-    logger.info(`🌐 HTTP server listening on port ${port}`);
+  const server = app.listen(port, () => {
+    logger.info(`🌐 Dashboard & API server listening on port ${port}`);
   });
 
   // Login

@@ -42,7 +42,7 @@ const command: Command = {
                         .setRequired(false))
                 .addStringOption(option =>
                     option.setName('schedule')
-                        .setDescription('ISO date to schedule (e.g., 2026-07-21T10:00:00Z)')
+                        .setDescription('Schedule (e.g. 25-07-2026 2:30 PM, or just 2:30 PM for today)')
                         .setRequired(false))
         )
         .addSubcommand(subcommand =>
@@ -68,10 +68,14 @@ const command: Command = {
 
                 let scheduledAt: Date | null = null;
                 if (schedule) {
-                    scheduledAt = new Date(schedule);
-                    if (isNaN(scheduledAt.getTime())) {
+                    scheduledAt = parseISTDate(schedule);
+                    if (!scheduledAt) {
                         await interaction.reply({
-                            embeds: [buildEmbed({ title: 'Error', description: 'Invalid schedule date format. Please use ISO 8601.', color: COLORS.ERROR })],
+                            embeds: [buildEmbed({ 
+                                title: 'Error', 
+                                description: 'Invalid schedule date format. Please use `DD-MM-YYYY hh:mm AM/PM` (e.g. `25-07-2026 2:30 PM`) or just `hh:mm AM/PM` (e.g. `2:30 PM` for today).', 
+                                color: COLORS.ERROR 
+                            })],
                             ephemeral: true
                         });
                         return;
@@ -150,5 +154,67 @@ const command: Command = {
         }
     }
 };
+
+function parseISTDate(input: string): Date | null {
+    const cleaned = input.trim();
+    
+    const dateTimeRegex = /^(\d{1,4})[-/](\d{1,2})[-/](\d{1,4})\s+(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i;
+    const timeOnlyRegex = /^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i;
+
+    let year: number;
+    let month: number;
+    let day: number;
+    let hour: number;
+    let minute: number;
+    let isPM = false;
+
+    const matchDateTime = cleaned.match(dateTimeRegex);
+    if (matchDateTime) {
+        const part1 = parseInt(matchDateTime[1], 10);
+        const part2 = parseInt(matchDateTime[2], 10);
+        const part3 = parseInt(matchDateTime[3], 10);
+        hour = parseInt(matchDateTime[4], 10);
+        minute = parseInt(matchDateTime[5], 10);
+        isPM = matchDateTime[6].toLowerCase() === 'pm';
+
+        if (part1 > 31) {
+            year = part1;
+            month = part2;
+            day = part3;
+        } else {
+            day = part1;
+            month = part2;
+            year = part3;
+        }
+    } else {
+        const matchTime = cleaned.match(timeOnlyRegex);
+        if (matchTime) {
+            const today = new Date();
+            const utcTime = today.getTime() + (today.getTimezoneOffset() * 60000);
+            const istToday = new Date(utcTime + (3600000 * 5.5));
+
+            year = istToday.getFullYear();
+            month = istToday.getMonth() + 1;
+            day = istToday.getDate();
+            hour = parseInt(matchTime[1], 10);
+            minute = parseInt(matchTime[2], 10);
+            isPM = matchTime[3].toLowerCase() === 'pm';
+        } else {
+            const parsed = new Date(cleaned);
+            if (isNaN(parsed.getTime())) return null;
+            return parsed;
+        }
+    }
+
+    if (isPM && hour < 12) hour += 12;
+    if (!isPM && hour === 12) hour = 0;
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const padYear = (y: number) => y.toString().padStart(4, '0');
+
+    const isoStr = `${padYear(year)}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:00+05:30`;
+    const result = new Date(isoStr);
+    return isNaN(result.getTime()) ? null : result;
+}
 
 export default command;

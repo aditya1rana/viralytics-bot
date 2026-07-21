@@ -251,10 +251,6 @@ export function createDashboardApp() {
     }
   });
 
-  // Health check
-  app.get('/', (req, res) => {
-    res.send('Viralytics Bot is Online!');
-  });
 
   // Serve static files
   app.use(express.static(path.join(__dirname, '..', '..', 'dashboard', 'dist')));

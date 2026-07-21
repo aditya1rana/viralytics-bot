@@ -47,20 +47,6 @@ const messageCreateEvent: BotEvent<'messageCreate'> = {
         if (message.member) {
           await xpService.grantRoleReward(message.guild, message.member, newLevel);
         }
-        
-        if (config?.levelUpAnnouncementEnabled !== false) {
-          const levelUpMessage = `🎉 Congratulations <@${userId}>, you've reached **Level ${newLevel}**!`;
-          if (config?.welcomeChannelId) { // Fallback level up channel or main welcome channel
-            const channel = message.guild.channels.cache.get(config.welcomeChannelId) as TextChannel;
-            if (channel && channel.isTextBased()) {
-              await (channel as any).send(levelUpMessage).catch(() => null);
-            } else {
-              await (message.channel as any).send(levelUpMessage).catch(() => null);
-            }
-          } else {
-            await (message.channel as any).send(levelUpMessage).catch(() => null);
-          }
-        }
       }
       
     } catch (error) {

@@ -33,7 +33,7 @@ export function createDashboardApp() {
   app.post('/api/auth', (req, res) => {
     const { password } = req.body;
     if (password === config.DASHBOARD_PASSWORD) {
-      res.json({ success: true });
+      res.json({ success: true, token: 'Bearer ' + password });
       return;
     }
     res.status(401).json({ success: false, error: 'Invalid password' });

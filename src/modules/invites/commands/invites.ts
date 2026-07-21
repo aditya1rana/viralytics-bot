@@ -1,4 +1,14 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, PermissionFlagsBits, userMention } from 'discord.js';
+import { 
+  SlashCommandBuilder, 
+  ChatInputCommandInteraction, 
+  PermissionFlagsBits, 
+  userMention,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
+  EmbedBuilder,
+  TextChannel
+} from 'discord.js';
 import { Command } from '../../../types/index.js';
 import { InviteService } from '../services/inviteService.js';
 import { embedBuilder } from '../../../services/embedBuilder.js';
@@ -43,6 +53,11 @@ const invitesCommand: Command = {
             .setDescription('The amount of bonus invites to add (can be negative)')
             .setRequired(true)
         )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('panel')
+        .setDescription('Post the invites & leaderboard check panel (Admin only).')
     ) as SlashCommandBuilder,
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -125,6 +140,37 @@ const invitesCommand: Command = {
 
         const embed = embedBuilder.success(`Successfully added ${amount} bonus invites to ${targetUser.username}.`);
         await interaction.editReply({ embeds: [embed] });
+      } else if (subcommand === 'panel') {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          const errorEmbed = embedBuilder.error('You do not have permission to post this panel.');
+          await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+          return;
+        }
+
+        const panelEmbed = new EmbedBuilder()
+          .setTitle('📩 Invites & Leaderboard Panel')
+          .setDescription('Use the buttons below to check your stats or view the server leaderboard.\n\n' +
+                          '👉 **Check Stats**: View your total, valid, left, and fake invites.\n' +
+                          '👉 **Leaderboard**: See the top members by valid invites.')
+          .setColor('#6C5CE7' as any)
+          .setFooter({ text: 'Viralytics Invite System' });
+
+        const checkBtn = new ButtonBuilder()
+          .setCustomId('invites_panel_check')
+          .setLabel('Check Stats')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('📩');
+
+        const leaderboardBtn = new ButtonBuilder()
+          .setCustomId('invites_panel_leaderboard')
+          .setLabel('Leaderboard')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('🏆');
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(checkBtn, leaderboardBtn);
+
+        await (interaction.channel as TextChannel).send({ embeds: [panelEmbed], components: [row] });
+        await interaction.reply({ content: '✅ Invites & Leaderboard panel posted!', ephemeral: true });
       }
     } catch (error) {
       logger.error('Error executing invites command:', error);

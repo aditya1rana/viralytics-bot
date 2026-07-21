@@ -71,4 +71,5 @@ export const api = {
   }),
   payPayout: (id: string) => fetchWithAuth(`/payouts/${id}/pay`, { method: 'POST' }),
   getActivityStats: () => fetchWithAuth('/stats/activity'),
+  getLeaderboards: () => fetchWithAuth('/leaderboards'),
 };

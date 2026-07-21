@@ -53,6 +53,7 @@ const invitesCommand: Command = {
 
     try {
       if (subcommand === 'check') {
+        await interaction.deferReply();
         const targetUser = interaction.options.getUser('user') || interaction.user;
         await ensureMember(guildId, targetUser.id);
 
@@ -83,14 +84,15 @@ const invitesCommand: Command = {
           ]
         });
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
 
       } else if (subcommand === 'leaderboard') {
+        await interaction.deferReply();
         const topMembers = await InviteService.getInviteLeaderboard(guildId, 10);
 
         if (!topMembers || topMembers.length === 0) {
           const embed = embedBuilder.error('No invite data found for this server.');
-          await interaction.reply({ embeds: [embed] });
+          await interaction.editReply({ embeds: [embed] });
           return;
         }
 
@@ -105,7 +107,7 @@ const invitesCommand: Command = {
           title: 'Invite Leaderboard',
           description
         });
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
 
       } else if (subcommand === 'add-bonus') {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
@@ -114,6 +116,7 @@ const invitesCommand: Command = {
           return;
         }
 
+        await interaction.deferReply({ ephemeral: true });
         const targetUser = interaction.options.getUser('user', true);
         const amount = interaction.options.getInteger('amount', true);
 
@@ -121,12 +124,16 @@ const invitesCommand: Command = {
         await InviteService.addBonusInvites(guildId, targetUser.id, amount);
 
         const embed = embedBuilder.success(`Successfully added ${amount} bonus invites to ${targetUser.username}.`);
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
       }
     } catch (error) {
       logger.error('Error executing invites command:', error);
       const errorEmbed = embedBuilder.error('An error occurred while processing the command.');
-      await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ embeds: [errorEmbed] });
+      } else {
+        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+      }
     }
   }
 };

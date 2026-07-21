@@ -454,6 +454,73 @@ export function createDashboardApp() {
     }
   });
 
+  // GET /api/leaderboards
+  app.get('/api/leaderboards', authMiddleware, async (req, res) => {
+    try {
+      const [xpLeaderboard, submissionLeaderboard, allMembers] = await Promise.all([
+        prisma.member.findMany({
+          where: { guildId },
+          orderBy: { totalXp: 'desc' },
+          take: 50,
+          include: { user: true }
+        }),
+        prisma.member.findMany({
+          where: { guildId },
+          orderBy: { totalSubmissions: 'desc' },
+          take: 50,
+          include: { user: true }
+        }),
+        prisma.member.findMany({
+          where: { guildId },
+          include: { user: true }
+        })
+      ]);
+
+      // Calculate valid invites and sort for invite leaderboard
+      const sortedInvitees = allMembers
+        .map(m => {
+          const validInvites = (m.totalInvites + m.bonusInvites) - m.leftInvites - m.fakeInvites;
+          return {
+            userId: m.userId,
+            username: m.user?.username || 'Unknown',
+            avatarUrl: m.user?.avatarUrl,
+            totalInvites: m.totalInvites,
+            bonusInvites: m.bonusInvites,
+            leftInvites: m.leftInvites,
+            fakeInvites: m.fakeInvites,
+            validInvites
+          };
+        })
+        .sort((a, b) => b.validInvites - a.validInvites)
+        .slice(0, 50);
+
+      res.json({
+        xpLeaderboard: xpLeaderboard.map((m, idx) => ({
+          userId: m.userId,
+          username: m.user?.username || 'Unknown',
+          avatarUrl: m.user?.avatarUrl,
+          totalXp: m.totalXp,
+          level: m.level,
+          rank: idx + 1
+        })),
+        submissionLeaderboard: submissionLeaderboard.map((m, idx) => ({
+          userId: m.userId,
+          username: m.user?.username || 'Unknown',
+          avatarUrl: m.user?.avatarUrl,
+          totalSubmissions: m.totalSubmissions,
+          approvedSubmissions: m.approvedSubmissions,
+          rank: idx + 1
+        })),
+        inviteLeaderboard: sortedInvitees.map((m, idx) => ({
+          ...m,
+          rank: idx + 1
+        }))
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
 
   // Serve static files
   app.use(express.static(path.join(__dirname, '..', '..', 'dashboard', 'dist')));

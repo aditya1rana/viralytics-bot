@@ -48,38 +48,50 @@ export default function Members() {
                 <th>Status</th>
                 <th>XP / Level</th>
                 <th>Submissions</th>
+                <th>Invites (Valid)</th>
               </tr>
             </thead>
             <tbody>
               {members.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '24px' }}>No members found.</td>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '24px' }}>No members found.</td>
                 </tr>
               ) : (
-                members.map(member => (
-                  <tr key={member.id}>
-                    <td style={{ fontFamily: 'monospace' }}>{member.userId}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold'
-                        }}>
-                          {(member.user?.username || '?')[0].toUpperCase()}
+                members.map(member => {
+                  const validInvites = (member.totalInvites || 0) + (member.bonusInvites || 0) - (member.leftInvites || 0) - (member.fakeInvites || 0);
+                  return (
+                    <tr key={member.id}>
+                      <td style={{ fontFamily: 'monospace' }}>{member.userId}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold'
+                          }}>
+                            {(member.user?.username || '?')[0].toUpperCase()}
+                          </div>
+                          {member.user?.username || 'Unknown'}
                         </div>
-                        {member.user?.username || 'Unknown'}
-                      </div>
-                    </td>
-                    <td>
-                      {member.verificationStatus === 'VERIFIED' ? 
-                        <span className="badge active">Verified</span> : 
-                        <span className="badge error">Unverified</span>
-                      }
-                    </td>
-                    <td>{member.totalXp || 0} XP (Lvl {member.level || 0})</td>
-                    <td>{member.totalSubmissions || 0}</td>
-                  </tr>
-                ))
+                      </td>
+                      <td>
+                        {member.verificationStatus === 'VERIFIED' ? 
+                          <span className="badge active">Verified</span> : 
+                          <span className="badge error">Unverified</span>
+                        }
+                      </td>
+                      <td>{member.totalXp || 0} XP (Lvl {member.level || 0})</td>
+                      <td>{member.totalSubmissions || 0}</td>
+                      <td>
+                        <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
+                          {validInvites}
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px' }}>
+                          ({member.totalInvites || 0} total, {member.bonusInvites || 0} bonus, {member.leftInvites || 0} left, {member.fakeInvites || 0} fake)
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

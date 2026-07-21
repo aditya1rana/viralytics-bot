@@ -1,4 +1,4 @@
-import { ColorResolvable } from 'discord.js';
+import { ColorResolvable, resolveColor } from 'discord.js';
 
 export const COLORS = {
   PRIMARY: '#6C5CE7' as ColorResolvable,
@@ -45,6 +45,47 @@ export const COLORS = {
   Leaderboard: '#DFE6E9' as ColorResolvable,
   Payout: '#55EFC4' as ColorResolvable,
 };
+
+export function safeResolveColor(color: any): ColorResolvable {
+  if (!color) return COLORS.PRIMARY;
+
+  // If it's already a number or array (valid ColorResolvable formats), return it
+  if (typeof color === 'number' || Array.isArray(color)) {
+    return color as ColorResolvable;
+  }
+
+  if (typeof color !== 'string') {
+    return COLORS.PRIMARY;
+  }
+
+  const trimmed = color.trim();
+  if (trimmed === '') return COLORS.PRIMARY;
+
+  // 1. Check if it's a named config color in our COLORS object (case-insensitive)
+  const normalized = trimmed.toLowerCase();
+  const mapped = (COLORS as any)[normalized];
+  if (mapped) return mapped;
+
+  // 2. If it's a hex code without #, add #
+  let resolved = trimmed;
+  if (/^[0-9a-fA-F]{6}$/.test(resolved) || /^[0-9a-fA-F]{3}$/.test(resolved)) {
+    resolved = `#${resolved}`;
+  }
+
+  // 3. Try to resolve via discord.js resolveColor (supporting Titlecase names like 'Red')
+  try {
+    const titleCased = resolved.charAt(0).toUpperCase() + resolved.slice(1).toLowerCase();
+    resolveColor(titleCased as any);
+    return titleCased as ColorResolvable;
+  } catch {
+    try {
+      resolveColor(resolved as any);
+      return resolved as ColorResolvable;
+    } catch {
+      return COLORS.PRIMARY;
+    }
+  }
+}
 
 export const colors = COLORS;
 export const Colors = COLORS;

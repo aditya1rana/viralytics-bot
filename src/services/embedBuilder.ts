@@ -1,5 +1,5 @@
 import { EmbedBuilder, ColorResolvable } from 'discord.js';
-import { COLORS } from '../utils/colors.js';
+import { COLORS, safeResolveColor } from '../utils/colors.js';
 
 export function createEmbed(options: {
   title?: string;
@@ -13,7 +13,7 @@ export function createEmbed(options: {
   author?: { name: string; iconURL?: string; url?: string };
 }): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setColor(options.color ?? COLORS.PRIMARY);
+    .setColor(safeResolveColor(options.color));
 
   if (options.title) embed.setTitle(options.title);
   if (options.description) embed.setDescription(options.description);

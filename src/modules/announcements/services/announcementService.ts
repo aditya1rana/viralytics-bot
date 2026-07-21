@@ -2,7 +2,7 @@ import { Client, ChannelType } from 'discord.js';
 import db from '../../../services/database.js';
 import logger from '../../../services/logger.js';
 import { buildEmbed } from '../../../services/embedBuilder.js';
-import COLORS from '../../../utils/colors.js';
+import COLORS, { safeResolveColor } from '../../../utils/colors.js';
 
 export const createAnnouncement = async (data: any) => {
     // Map command-friendly fields to DB schema fields
@@ -35,7 +35,7 @@ export const sendAnnouncement = async (client: Client, announcement: any) => {
         const embedData = {
             title: announcement.title,
             description: announcement.content,
-            color: announcement.color ? parseInt(announcement.color.replace('#', ''), 16) : (COLORS.PRIMARY as any)
+            color: safeResolveColor(announcement.color)
         };
 
         const embed = buildEmbed(embedData);

@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ModalBuilder, SlashCommandBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { ActionRowBuilder, ModalBuilder, SlashCommandBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 import { Command } from '../../../types/index.js';
 import { ensureGuild, ensureMember, ensureUser } from '../../../utils/helpers.js';
 import { logger } from '../../../services/logger.js';
@@ -6,7 +6,8 @@ import { logger } from '../../../services/logger.js';
 const submitCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('submit')
-    .setDescription('Submit a video link for a campaign'),
+    .setDescription('Submit a video link for a campaign')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
     try {

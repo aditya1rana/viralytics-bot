@@ -8,6 +8,7 @@ const deleteSubmissionCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('delete-submission')
     .setDescription('Delete a submission')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(option => 
       option.setName('id')
         .setDescription('The short ID of the submission to delete')

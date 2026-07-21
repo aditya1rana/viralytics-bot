@@ -11,6 +11,7 @@ export default {
   data: new SlashCommandBuilder()
     .setName('ticket')
     .setDescription('Ticket system commands')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand(subcommand =>
       subcommand
         .setName('panel')

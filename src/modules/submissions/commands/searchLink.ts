@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { Command } from '../../../types/index.js';
 import { logger } from '../../../services/logger.js';
 import { submissionService } from '../services/submissionService.js';
@@ -8,6 +8,7 @@ const searchLinkCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('search-link')
     .setDescription('Search for submitted links')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(option => 
       option.setName('url')
         .setDescription('Search by URL snippet')

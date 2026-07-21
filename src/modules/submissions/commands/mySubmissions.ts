@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { Command } from '../../../types/index.js';
 import { ensureGuild, ensureMember, ensureUser } from '../../../utils/helpers.js';
 import { logger } from '../../../services/logger.js';
@@ -9,7 +9,8 @@ import { embedBuilder } from '../../../services/embedBuilder.js';
 const mySubmissionsCommand: Command = {
   data: new SlashCommandBuilder()
     .setName('my-submissions')
-    .setDescription('View your submitted links'),
+    .setDescription('View your submitted links')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction) {
     try {

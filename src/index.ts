@@ -28,6 +28,7 @@ async function main() {
   registerInteractionHandler(client, buttons, selectMenus, modals);
 
   const { syncGuildsWithDiscord } = await import('./services/subscriptionGuard.js');
+  const { deployCommands } = await import('./core/deployCommands.js');
 
   // Ready event
   client.once(Events.ClientReady, async (readyClient) => {
@@ -37,6 +38,9 @@ async function main() {
 
     // Sync all active guilds with DB
     await syncGuildsWithDiscord(readyClient);
+
+    // Deploy slash commands globally to all servers
+    await deployCommands(client.commands);
   });
 
   // Guild join event

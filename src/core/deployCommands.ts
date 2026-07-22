@@ -5,30 +5,40 @@ import { loadCommands } from './commandHandler.js';
 import { Client, Collection, GatewayIntentBits } from 'discord.js';
 import type { Command } from '../types/index.js';
 
-export async function deployCommands() {
-  // Create a temporary client to load commands
-  const tempClient = new Client({ intents: [GatewayIntentBits.Guilds] }) as Client & { commands: Collection<string, Command> };
-  tempClient.commands = new Collection();
+export async function deployCommands(commandsCollection?: Collection<string, Command>) {
+  let commandData: any[] = [];
 
-  await loadCommands(tempClient);
-
-  const commandData = tempClient.commands.map(cmd => cmd.data.toJSON());
+  if (commandsCollection && commandsCollection.size > 0) {
+    commandData = commandsCollection.map(cmd => cmd.data.toJSON());
+  } else {
+    const tempClient = new Client({ intents: [GatewayIntentBits.Guilds] }) as Client & { commands: Collection<string, Command> };
+    tempClient.commands = new Collection();
+    await loadCommands(tempClient);
+    commandData = tempClient.commands.map(cmd => cmd.data.toJSON());
+    tempClient.destroy();
+  }
 
   const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
 
   try {
-    logger.info(`🔄 Deploying ${commandData.length} commands to guild ${config.DISCORD_GUILD_ID}...`);
+    logger.info(`🔄 Deploying ${commandData.length} global application commands...`);
 
+    // Register globally for all servers
     await rest.put(
-      Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID),
+      Routes.applicationCommands(config.DISCORD_CLIENT_ID),
       { body: commandData },
     );
 
-    logger.info(`✅ Successfully deployed ${commandData.length} commands`);
-  } catch (err) {
-    logger.error('❌ Failed to deploy commands:', err);
-    throw err;
-  }
+    // Also register for primary guild for immediate instant update
+    if (config.DISCORD_GUILD_ID) {
+      await rest.put(
+        Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID),
+        { body: commandData },
+      ).catch(() => null);
+    }
 
-  tempClient.destroy();
+    logger.info(`✅ Successfully deployed ${commandData.length} commands globally across all servers!`);
+  } catch (err) {
+    logger.error('❌ Failed to deploy commands globally:', err);
+  }
 }

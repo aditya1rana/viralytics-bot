@@ -92,8 +92,9 @@ export const api = {
   getLeaderboards: () => fetchWithAuth('/leaderboards'),
   getInviteLink: () => fetchWithAuth('/auth/invite-link'),
   getAdminSubscriptions: () => fetchWithAuth('/admin/subscriptions'),
-  toggleSubscription: (guildId: string, isSubscribed: boolean) => fetchWithAuth(`/admin/subscriptions/${guildId}/toggle`, {
-    method: 'POST',
-    body: JSON.stringify({ isSubscribed }),
-  }),
+  toggleSubscription: (guildId: string, isSubscribed: boolean, options: { durationDays?: number; customExpiresAt?: string; subscriptionTier?: string } = {}) => 
+    fetchWithAuth(`/admin/subscriptions/${guildId}/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ isSubscribed, ...options }),
+    }),
 };

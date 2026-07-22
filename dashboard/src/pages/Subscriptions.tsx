@@ -8,6 +8,12 @@ export default function Subscriptions() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Approval Modal State
+  const [selectedGuild, setSelectedGuild] = useState<any | null>(null);
+  const [durationMode, setDurationMode] = useState<string>('30'); // '30', '60', '90', '365', 'LIFETIME', 'CUSTOM'
+  const [customDate, setCustomDate] = useState<string>('');
+  const [tier, setTier] = useState<string>('ENTERPRISE');
+
   const fetchSubscriptions = () => {
     setLoading(true);
     api.getAdminSubscriptions()
@@ -20,16 +26,77 @@ export default function Subscriptions() {
     fetchSubscriptions();
   }, []);
 
-  const handleToggleSubscription = async (guildId: string, currentStatus: boolean) => {
+  const openApprovalModal = (g: any) => {
+    setSelectedGuild(g);
+    setDurationMode('30');
+    setCustomDate('');
+    setTier(g.subscriptionTier || 'ENTERPRISE');
+  };
+
+  const handleConfirmApproval = async () => {
+    if (!selectedGuild) return;
+
+    let durationDays: number | undefined;
+    let customExpiresAt: string | undefined;
+
+    if (durationMode === 'LIFETIME') {
+      durationDays = undefined;
+      customExpiresAt = undefined;
+    } else if (durationMode === 'CUSTOM') {
+      if (!customDate) {
+        setError('Please select a custom expiration date.');
+        return;
+      }
+      customExpiresAt = new Date(customDate).toISOString();
+    } else {
+      durationDays = parseInt(durationMode, 10);
+    }
+
     try {
-      const nextStatus = !currentStatus;
-      await api.toggleSubscription(guildId, nextStatus);
-      setSuccess(nextStatus ? 'Server subscription APPROVED and activated!' : 'Server subscription DEACTIVATED.');
-      setTimeout(() => setSuccess(''), 3500);
+      await api.toggleSubscription(selectedGuild.id, true, {
+        durationDays,
+        customExpiresAt,
+        subscriptionTier: tier,
+      });
+
+      setSuccess(`Server "${selectedGuild.name}" APPROVED & commands deployed instantly!`);
+      setTimeout(() => setSuccess(''), 4000);
+      setSelectedGuild(null);
       fetchSubscriptions();
     } catch (err: any) {
-      setError(err.message || 'Failed to update subscription');
+      setError(err.message || 'Failed to approve subscription');
     }
+  };
+
+  const handleDeactivate = async (guildId: string, name: string) => {
+    try {
+      await api.toggleSubscription(guildId, false);
+      setSuccess(`Server "${name}" DEACTIVATED and slash commands removed.`);
+      setTimeout(() => setSuccess(''), 4000);
+      fetchSubscriptions();
+    } catch (err: any) {
+      setError(err.message || 'Failed to deactivate server');
+    }
+  };
+
+  const formatExpiration = (g: any) => {
+    if (!g.isSubscribed) return <span style={{ color: '#EF4444' }}>○ Inactive</span>;
+    if (!g.subscriptionExpiresAt) return <span style={{ color: '#10B981', fontWeight: 600 }}>♾ Lifetime Access</span>;
+
+    const expDate = new Date(g.subscriptionExpiresAt);
+    const now = new Date();
+    const diffTime = expDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+      return <span style={{ color: '#EF4444', fontWeight: 700 }}>⚠️ Expired ({expDate.toLocaleDateString()})</span>;
+    }
+
+    return (
+      <span style={{ color: '#F59E0B', fontWeight: 600 }}>
+        ⏱ Expires in {diffDays} {diffDays === 1 ? 'day' : 'days'} ({expDate.toLocaleDateString()})
+      </span>
+    );
   };
 
   const filteredGuilds = guilds.filter(g => {
@@ -43,11 +110,11 @@ export default function Subscriptions() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: 700 }}>SaaS Server Subscriptions</h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>Approve or revoke Discord bot access for servers requesting access</p>
+          <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>Approve, manage subscription durations, or revoke Discord bot access for servers</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <a
-            href="https://discord.com/oauth2/authorize?client_id=1528892453287886898&permissions=8&scope=bot%20applications.commands"
+            href="https://discord.com/oauth2/authorize?client_id=1528892453287886898&permissions=8&scope=bot+applications.commands"
             target="_blank"
             rel="noreferrer"
             style={{
@@ -103,7 +170,7 @@ export default function Subscriptions() {
           No servers found for the selected filter.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>
           {filteredGuilds.map(g => (
             <div key={g.id} className="glass-card flex-col gap-4" style={{ position: 'relative' }}>
               {/* Server Header */}
@@ -126,7 +193,7 @@ export default function Subscriptions() {
                 </div>
               </div>
 
-              {/* Server Info */}
+              {/* Server Info Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '10px' }}>
                 <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Joined Date</div>
@@ -146,31 +213,132 @@ export default function Subscriptions() {
                 </div>
               </div>
 
-              {/* Status Badge & Approve Button */}
+              {/* Expiration Banner */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px', fontSize: '12px' }}>
+                {formatExpiration(g)}
+              </div>
+
+              {/* Status Badge & Actions */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px' }}>
                 <div>
                   <span className={`badge ${g.isSubscribed ? 'active' : 'error'}`}>
-                    {g.isSubscribed ? '● APPROVED & ACTIVE' : '○ UNAPPROVED / INACTIVE'}
+                    {g.isSubscribed ? '● ACTIVE' : '○ INACTIVE'}
                   </span>
                 </div>
 
-                <button
-                  onClick={() => handleToggleSubscription(g.id, g.isSubscribed)}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    background: g.isSubscribed ? '#EF4444' : '#10B981',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px'
-                  }}
-                >
-                  {g.isSubscribed ? 'Deactivate Permission' : '✓ Approve Subscription'}
-                </button>
+                {g.isSubscribed ? (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => openApprovalModal(g)}
+                      style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(255,255,255,0.08)' }}
+                    >
+                      ✏ Edit Duration
+                    </button>
+                    <button
+                      onClick={() => handleDeactivate(g.id, g.name)}
+                      style={{ padding: '6px 12px', fontSize: '12px', background: '#EF4444', color: 'white' }}
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => openApprovalModal(g)}
+                    style={{ padding: '8px 16px', fontSize: '13px', fontWeight: 600, background: '#10B981', color: 'white' }}
+                  >
+                    ✓ Approve Subscription
+                  </button>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Approval & Duration Modal */}
+      {selectedGuild && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px'
+        }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '480px', padding: '28px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '6px' }}>
+              Subscription Settings for {selectedGuild.name}
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+              Set subscription duration and tier. Slash commands will be deployed instantly upon approval.
+            </p>
+
+            {/* Tier Select */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                Subscription Tier
+              </label>
+              <select
+                value={tier}
+                onChange={(e) => setTier(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                <option value="ENTERPRISE">ENTERPRISE</option>
+                <option value="PRO">PRO</option>
+                <option value="STANDARD">STANDARD</option>
+              </select>
+            </div>
+
+            {/* Duration Presets */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                Select Subscription Duration
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                {[
+                  { label: '30 Days', val: '30' },
+                  { label: '60 Days', val: '60' },
+                  { label: '90 Days', val: '90' },
+                  { label: '1 Year (365d)', val: '365' },
+                  { label: 'Lifetime ♾', val: 'LIFETIME' },
+                  { label: 'Custom Date', val: 'CUSTOM' },
+                ].map(opt => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => setDurationMode(opt.val)}
+                    style={{
+                      padding: '10px 8px',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      background: durationMode === opt.val ? 'var(--primary)' : 'rgba(255,255,255,0.06)',
+                      color: 'white',
+                      border: '1px solid rgba(255,255,255,0.1)'
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {durationMode === 'CUSTOM' && (
+                <div>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Custom Expiration Date</label>
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={(e) => setCustomDate(e.target.value)}
+                    style={{ width: '100%', padding: '10px' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button onClick={() => setSelectedGuild(null)}>Cancel</button>
+              <button onClick={handleConfirmApproval} style={{ background: '#10B981', color: 'white', padding: '10px 20px', fontWeight: 600 }}>
+                ✓ Save & Activate
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

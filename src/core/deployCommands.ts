@@ -34,6 +34,21 @@ export async function deployGuildCommands(guildId: string, commandsCollection?: 
   }
 }
 
+export async function removeGuildCommands(guildId: string) {
+  if (!guildId) return;
+  const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
+  try {
+    logger.info(`🗑️ Removing commands from guild ${guildId}...`);
+    await rest.put(
+      Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, guildId),
+      { body: [] },
+    );
+    logger.info(`✅ Commands removed from guild ${guildId}.`);
+  } catch (err) {
+    logger.error(`❌ Failed to remove commands from guild ${guildId}:`, err);
+  }
+}
+
 export async function deployCommands(commandsCollection?: Collection<string, Command>) {
   let commandData: any[] = [];
 

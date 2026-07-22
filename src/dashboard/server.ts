@@ -912,6 +912,7 @@ export function createDashboardApp(discordClient?: any) {
         joinedAt: g.joinedAt,
         isSubscribed: g.isSubscribed,
         subscriptionTier: g.subscriptionTier,
+        subscriptionExpiresAt: g.subscriptionExpiresAt,
         memberCount: g._count.members,
         campaignCount: g._count.campaigns,
         isPrimaryOwnerServer: g.id === config.DISCORD_GUILD_ID,
@@ -922,14 +923,18 @@ export function createDashboardApp(discordClient?: any) {
     }
   });
 
-  // POST /api/admin/subscriptions/:targetGuildId/toggle (Master Admin: Toggle server subscription)
+  // POST /api/admin/subscriptions/:targetGuildId/toggle (Master Admin: Toggle server subscription with duration options)
   app.post('/api/admin/subscriptions/:targetGuildId/toggle', authMiddleware, async (req, res) => {
     try {
       const guildIdStr = String(req.params.targetGuildId);
-      const { isSubscribed } = req.body;
+      const { isSubscribed, durationDays, customExpiresAt, subscriptionTier } = req.body;
 
       const updatedState = typeof isSubscribed === 'boolean' ? isSubscribed : true;
-      await setGuildSubscription(guildIdStr, updatedState);
+      await setGuildSubscription(guildIdStr, updatedState, {
+        durationDays: durationDays ? parseInt(durationDays, 10) : undefined,
+        customExpiresAt,
+        subscriptionTier,
+      });
 
       const updatedGuild = await prisma.guild.findUnique({
         where: { id: guildIdStr }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, setAuthToken } from '../api';
 
 export default function Login() {
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,13 +16,13 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const data = await api.login(password);
+      const data = await api.login({ username, password });
       if (data.token) {
         setAuthToken(data.token);
         navigate('/');
       }
     } catch (err: any) {
-      setError(err.message || 'Invalid password');
+      setError(err.message || 'Invalid username or password');
       setShake(true);
       setTimeout(() => setShake(false), 400);
     } finally {
@@ -39,7 +40,7 @@ export default function Login() {
     }}>
       <div className={`glass-card animate-fade-in ${shake ? 'animate-shake' : ''}`} style={{
         width: '100%',
-        maxWidth: '400px',
+        maxWidth: '420px',
         padding: '40px',
         textAlign: 'center'
       }}>
@@ -59,21 +60,38 @@ export default function Login() {
           </svg>
         </div>
         
-        <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>Viralytics Bot</h1>
-        <p style={{ marginBottom: '32px' }}>Enter dashboard password to continue</p>
+        <h1 style={{ fontSize: '24px', marginBottom: '6px' }}>Viralytics SaaS Portal</h1>
+        <p style={{ marginBottom: '28px', color: 'var(--text-muted)', fontSize: '14px' }}>Sign in to manage campaigns and video clipping analytics</p>
         
         <form onSubmit={handleLogin} className="flex-col gap-4">
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-            style={{ textAlign: 'center', fontSize: '16px', padding: '12px' }}
-          />
-          {error && <div style={{ color: 'var(--error)', fontSize: '14px' }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{ padding: '12px' }} className="w-full">
-            {loading ? 'Authenticating...' : 'Login'}
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Username</label>
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+              style={{ fontSize: '15px', padding: '12px' }}
+            />
+          </div>
+
+          <div style={{ textAlign: 'left' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Password</label>
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              style={{ fontSize: '15px', padding: '12px' }}
+            />
+          </div>
+
+          {error && <div style={{ color: 'var(--error)', fontSize: '14px', background: 'rgba(239, 68, 68, 0.1)', padding: '8px 12px', borderRadius: '8px' }}>{error}</div>}
+          
+          <button type="submit" disabled={loading} style={{ padding: '12px', marginTop: '8px' }} className="w-full">
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
       </div>

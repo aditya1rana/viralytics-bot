@@ -150,6 +150,10 @@ model Guild {
   joinedAt DateTime @default(now())
   leftAt   DateTime?
 
+  isSubscribed          Boolean   @default(true)
+  subscriptionTier      String    @default("ENTERPRISE")
+  subscriptionExpiresAt DateTime?
+
   config                GuildConfig?
   members               Member[]
   campaigns             Campaign[]
@@ -167,6 +171,16 @@ model Guild {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("ADMIN") // SUPER_ADMIN, ADMIN
+  guildId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 /// Global Discord user (shared across guilds)
@@ -330,13 +344,20 @@ model Campaign {
   id          String         @id @default(cuid())
   guildId     String
   name        String
+  brandName   String?
   description String?
   status      CampaignStatus @default(DRAFT)
 
   platforms  Platform[]
   hashtags   String[]
   guidelines String?
+  instructions String?
+  rules        String?
+  internalNotes String?
 
+  contractValue Decimal? @db.Decimal(12, 2)
+  viewsGoal     BigInt?
+  cpmRate       Decimal? @db.Decimal(10, 2)
   payPerApproved Decimal? @db.Decimal(10, 2)
   currency       String   @default("USD")
 
@@ -381,6 +402,11 @@ model Submission {
   originalUrl   String
   normalizedUrl String
   notes         String?
+
+  viewsCount    Int              @default(0)
+  likesCount    Int              @default(0)
+  thumbnailUrl  String?
+  creatorHandle String?
 
   status     SubmissionStatus @default(PENDING)
   reviewedBy String?

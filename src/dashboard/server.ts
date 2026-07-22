@@ -6,6 +6,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { submissionService } from '../modules/submissions/services/submissionService.js';
 import { payoutService } from '../modules/payouts/services/payoutService.js';
+import { ensureDefaultAdmin, hashPassword, verifyPassword } from '../services/authService.js';
+import { generateSubmissionsCSV, SubmissionCSVData } from '../services/csvExporterService.js';
+import { viewFetcherService } from '../services/viewFetcherService.js';
+import logger from '../services/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,29 +20,93 @@ export function createDashboardApp() {
   app.use(cors());
   app.use(express.json());
 
-  // Simple Auth Middleware
-  const authMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Initialize master admin user on launch
+  ensureDefaultAdmin();
+
+  // Auth Middleware
+  const authMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    const token = authHeader.split(' ')[1];
-    if (token !== config.DASHBOARD_PASSWORD) {
-      res.status(401).json({ error: 'Unauthorized' });
+
+    const token = authHeader.replace(/^Bearer\s+/, '');
+    
+    // Support default legacy password token or username/password token
+    if (token === config.DASHBOARD_PASSWORD) {
+      (req as any).user = { username: 'admin', role: 'SUPER_ADMIN' };
+      next();
       return;
     }
-    next();
+
+    // Check token as base64 encoded username:hash
+    try {
+      const decoded = Buffer.from(token, 'base64').toString('utf-8');
+      const [username] = decoded.split(':');
+      const admin = await prisma.adminUser.findUnique({ where: { username } });
+      if (admin) {
+        (req as any).user = admin;
+        next();
+        return;
+      }
+    } catch {
+      // Invalid format
+    }
+
+    res.status(401).json({ error: 'Unauthorized' });
   };
 
-  // POST /api/auth
-  app.post('/api/auth', (req, res) => {
-    const { password } = req.body;
+  // POST /api/auth/login (Username & Password)
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      // Legacy single password fallback
+      if (!username && password === config.DASHBOARD_PASSWORD) {
+        res.json({ success: true, token: 'Bearer ' + config.DASHBOARD_PASSWORD, user: { username: 'admin', role: 'SUPER_ADMIN' } });
+        return;
+      }
+
+      if (!username || !password) {
+        res.status(400).json({ error: 'Username and password are required' });
+        return;
+      }
+
+      const admin = await prisma.adminUser.findUnique({ where: { username } });
+      if (!admin || !verifyPassword(password, admin.passwordHash)) {
+        res.status(401).json({ error: 'Invalid username or password' });
+        return;
+      }
+
+      const token = Buffer.from(`${admin.username}:${admin.passwordHash}`).toString('base64');
+      res.json({
+        success: true,
+        token: `Bearer ${token}`,
+        user: { username: admin.username, role: admin.role, guildId: admin.guildId }
+      });
+    } catch (error) {
+      logger.error('Error in login endpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // Legacy POST /api/auth fallback
+  app.post('/api/auth', async (req, res) => {
+    const { username, password } = req.body;
     if (password === config.DASHBOARD_PASSWORD) {
-      res.json({ success: true, token: 'Bearer ' + password });
+      res.json({ success: true, token: 'Bearer ' + config.DASHBOARD_PASSWORD });
       return;
     }
-    res.status(401).json({ success: false, error: 'Invalid password' });
+    if (username && password) {
+      const admin = await prisma.adminUser.findUnique({ where: { username } });
+      if (admin && verifyPassword(password, admin.passwordHash)) {
+        const token = Buffer.from(`${admin.username}:${admin.passwordHash}`).toString('base64');
+        res.json({ success: true, token: 'Bearer ' + token });
+        return;
+      }
+    }
+    res.status(401).json({ success: false, error: 'Invalid credentials' });
   });
 
   const guildId = config.DISCORD_GUILD_ID;
@@ -92,61 +160,451 @@ export function createDashboardApp() {
     }
   });
 
-  // GET /api/logs
-  app.get('/api/logs', authMiddleware, async (req, res) => {
+  // GET /api/campaigns (Rich Campaigns List with Metrics)
+  app.get('/api/campaigns', authMiddleware, async (req, res) => {
     try {
-      const type = req.query.type as string;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const skip = (page - 1) * limit;
+      const campaigns = await prisma.campaign.findMany({
+        where: { guildId },
+        include: {
+          submissions: {
+            select: {
+              id: true,
+              status: true,
+              viewsCount: true,
+              likesCount: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+      });
 
-      if (type === 'audit') {
-        const [logs, total] = await Promise.all([
-          prisma.auditLog.findMany({
-            where: { guildId },
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: limit,
-            include: { actor: true },
-          }),
-          prisma.auditLog.count({ where: { guildId } })
-        ]);
-        res.json({ data: logs, total, page, limit });
-        return;
-      }
+      const formatted = campaigns.map(c => {
+        const totalVideos = c.submissions.length;
+        const approvedSubs = c.submissions.filter(s => s.status === 'APPROVED');
+        const approvedVideos = approvedSubs.length;
+        
+        // Sum total views from approved submissions
+        const viewsCompleted = approvedSubs.reduce((acc, curr) => acc + (curr.viewsCount || 0), 0);
+        
+        const viewsGoalNum = c.viewsGoal ? Number(c.viewsGoal) : 0;
+        const goalProgress = viewsGoalNum > 0 
+          ? Math.min(100, Math.round((viewsCompleted / viewsGoalNum) * 100)) 
+          : 0;
 
-      if (type === 'submissions') {
-        const [submissions, total] = await Promise.all([
-          prisma.submission.findMany({
-            where: { guildId },
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: limit,
-            include: { user: true, campaign: true },
-          }),
-          prisma.submission.count({ where: { guildId } })
-        ]);
-        res.json({ data: submissions, total, page, limit });
-        return;
-      }
+        const cpm = c.cpmRate ? Number(c.cpmRate) : 0;
+        const contract = c.contractValue ? Number(c.contractValue) : 0;
+        
+        // Spend forecast = (viewsCompleted / 1000) * cpmRate
+        const spendForecast = cpm > 0 ? (viewsCompleted / 1000) * cpm : 0;
+        const remainingBudget = contract > 0 ? Math.max(0, contract - spendForecast) : 0;
 
-      if (type === 'verifications') {
-        const [verifications, total] = await Promise.all([
-          prisma.member.findMany({
-            where: { guildId, verificationStatus: 'VERIFIED' },
-            orderBy: { updatedAt: 'desc' },
-            skip,
-            take: limit,
-            include: { user: true },
-          }),
-          prisma.member.count({ where: { guildId, verificationStatus: 'VERIFIED' } })
-        ]);
-        res.json({ data: verifications, total, page, limit });
-        return;
-      }
+        return {
+          id: c.id,
+          name: c.name,
+          brandName: c.brandName || '',
+          description: c.description || '',
+          instructions: c.instructions || '',
+          rules: c.rules || '',
+          internalNotes: c.internalNotes || '',
+          status: c.status,
+          platforms: c.platforms,
+          contractValue: contract,
+          viewsGoal: viewsGoalNum,
+          cpmRate: cpm,
+          payPerApproved: c.payPerApproved ? Number(c.payPerApproved) : 0,
+          currency: c.currency,
+          startsAt: c.startsAt,
+          endsAt: c.endsAt,
+          totalVideos,
+          approvedVideos,
+          viewsCompleted,
+          goalProgress,
+          spendForecast,
+          remainingBudget,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt
+        };
+      });
 
-      res.status(400).json({ error: 'Invalid log type' });
+      res.json(formatted);
     } catch (error) {
+      logger.error('Error fetching campaigns:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/campaigns (Create Rich Campaign)
+  app.post('/api/campaigns', authMiddleware, async (req, res) => {
+    try {
+      const {
+        name,
+        brandName,
+        description,
+        instructions,
+        rules,
+        internalNotes,
+        contractValue,
+        viewsGoal,
+        cpmRate,
+        payPerApproved,
+        platforms,
+        status,
+        startsAt,
+        endsAt
+      } = req.body;
+
+      if (!name) {
+        res.status(400).json({ error: 'Campaign name is required' });
+        return;
+      }
+
+      const campaign = await prisma.campaign.create({
+        data: {
+          guildId,
+          name,
+          brandName: brandName || null,
+          description: description || null,
+          instructions: instructions || null,
+          rules: rules || null,
+          internalNotes: internalNotes || null,
+          contractValue: contractValue ? parseFloat(contractValue) : null,
+          viewsGoal: viewsGoal ? BigInt(viewsGoal) : null,
+          cpmRate: cpmRate ? parseFloat(cpmRate) : null,
+          payPerApproved: payPerApproved ? parseFloat(payPerApproved) : null,
+          platforms: platforms || ['INSTAGRAM_REELS', 'TIKTOK', 'YOUTUBE_SHORTS'],
+          status: status || 'ACTIVE',
+          startsAt: startsAt ? new Date(startsAt) : null,
+          endsAt: endsAt ? new Date(endsAt) : null,
+          createdBy: (req as any).user?.username || 'Dashboard',
+        }
+      });
+
+      res.json(campaign);
+    } catch (error: any) {
+      logger.error('Error creating campaign:', error);
+      if (error.code === 'P2002') {
+        res.status(400).json({ error: 'A campaign with this name already exists in this server.' });
+        return;
+      }
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  });
+
+  // PUT /api/campaigns/:id (Update Campaign)
+  app.put('/api/campaigns/:id', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        name,
+        brandName,
+        description,
+        instructions,
+        rules,
+        internalNotes,
+        contractValue,
+        viewsGoal,
+        cpmRate,
+        payPerApproved,
+        platforms,
+        status,
+        startsAt,
+        endsAt
+      } = req.body;
+
+      const campaign = await prisma.campaign.update({
+        where: { id: id as string },
+        data: {
+          ...(name && { name }),
+          brandName: brandName !== undefined ? brandName : undefined,
+          description: description !== undefined ? description : undefined,
+          instructions: instructions !== undefined ? instructions : undefined,
+          rules: rules !== undefined ? rules : undefined,
+          internalNotes: internalNotes !== undefined ? internalNotes : undefined,
+          contractValue: contractValue !== undefined ? (contractValue ? parseFloat(contractValue) : null) : undefined,
+          viewsGoal: viewsGoal !== undefined ? (viewsGoal ? BigInt(viewsGoal) : null) : undefined,
+          cpmRate: cpmRate !== undefined ? (cpmRate ? parseFloat(cpmRate) : null) : undefined,
+          payPerApproved: payPerApproved !== undefined ? (payPerApproved ? parseFloat(payPerApproved) : null) : undefined,
+          ...(platforms && { platforms }),
+          ...(status && { status }),
+          startsAt: startsAt !== undefined ? (startsAt ? new Date(startsAt) : null) : undefined,
+          endsAt: endsAt !== undefined ? (endsAt ? new Date(endsAt) : null) : undefined,
+        }
+      });
+
+      res.json(campaign);
+    } catch (error: any) {
+      logger.error('Error updating campaign:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+  });
+
+  // POST /api/campaigns/:id/status
+  app.post('/api/campaigns/:id/status', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (!['DRAFT', 'ACTIVE', 'PAUSED', 'ARCHIVED', 'CLOSED'].includes(status)) {
+        res.status(400).json({ error: 'Invalid status' });
+        return;
+      }
+
+      const campaign = await prisma.campaign.findUnique({ where: { id: id as string } });
+      if (!campaign || campaign.guildId !== guildId) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+      
+      const updatedCampaign = await prisma.campaign.update({
+        where: { id: id as string },
+        data: { status },
+      });
+      res.json(updatedCampaign);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/submissions (List Submissions with filter & search)
+  app.get('/api/submissions', authMiddleware, async (req, res) => {
+    try {
+      const statusFilter = req.query.status as string | undefined;
+      const campaignIdFilter = req.query.campaignId as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const whereClause: any = { guildId };
+      if (statusFilter && statusFilter !== 'ALL') {
+        whereClause.status = statusFilter;
+      }
+      if (campaignIdFilter) {
+        whereClause.campaignId = campaignIdFilter;
+      }
+      if (search && search.trim()) {
+        whereClause.OR = [
+          { originalUrl: { contains: search, mode: 'insensitive' } },
+          { creatorHandle: { contains: search, mode: 'insensitive' } },
+          { user: { username: { contains: search, mode: 'insensitive' } } }
+        ];
+      }
+
+      const submissions = await prisma.submission.findMany({
+        where: whereClause,
+        include: {
+          user: true,
+          campaign: true
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const formatted = submissions.map(sub => ({
+        id: sub.id,
+        shortId: sub.shortId,
+        guildId: sub.guildId,
+        userId: sub.userId,
+        creatorUsername: sub.user?.username || 'Unknown',
+        creatorTag: sub.user?.username ? `@${sub.user.username}` : `<@${sub.userId}>`,
+        creatorAvatar: sub.user?.avatarUrl,
+        creatorHandle: sub.creatorHandle || viewFetcherService.extractHandleFromUrl(sub.originalUrl) || 'creator',
+        campaignId: sub.campaignId,
+        campaignName: sub.campaign?.name || 'Unknown Campaign',
+        brandName: sub.campaign?.brandName || '',
+        platform: sub.platform,
+        originalUrl: sub.originalUrl,
+        viewsCount: sub.viewsCount || 0,
+        likesCount: sub.likesCount || 0,
+        thumbnailUrl: sub.thumbnailUrl || (sub.platform === 'YOUTUBE_SHORTS' ? `https://i.ytimg.com/vi/${sub.originalUrl.match(/shorts\/([a-zA-Z0-9_-]+)/)?.[1] || ''}/hqdefault.jpg` : null),
+        status: sub.status,
+        notes: sub.notes,
+        reviewedBy: sub.reviewedBy,
+        reviewedAt: sub.reviewedAt,
+        reviewNote: sub.reviewNote,
+        createdAt: sub.createdAt
+      }));
+
+      res.json(formatted);
+    } catch (error) {
+      logger.error('Error fetching submissions:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/submissions/pending (Legacy fallback)
+  app.get('/api/submissions/pending', authMiddleware, async (req, res) => {
+    try {
+      const submissions = await prisma.submission.findMany({
+        where: { guildId, status: 'PENDING' },
+        include: { user: true, campaign: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      res.json(submissions);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/submissions/:id/approve
+  app.post('/api/submissions/:id/approve', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { viewsCount } = req.body || {};
+
+      if (viewsCount !== undefined && typeof viewsCount === 'number') {
+        await prisma.submission.update({
+          where: { id: id as string },
+          data: { viewsCount }
+        });
+      }
+
+      const submission = await submissionService.approveSubmission(id as string, (req as any).user?.username || 'Dashboard');
+      res.json({ success: true, submission });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to approve submission' });
+    }
+  });
+
+  // POST /api/submissions/:id/reject
+  app.post('/api/submissions/:id/reject', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const submission = await submissionService.rejectSubmission(id as string, (req as any).user?.username || 'Dashboard', reason);
+      res.json({ success: true, submission });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to reject submission' });
+    }
+  });
+
+  // POST /api/submissions/:id/views (Manually update views count)
+  app.post('/api/submissions/:id/views', authMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { viewsCount, likesCount } = req.body;
+
+      const submission = await prisma.submission.update({
+        where: { id: id as string },
+        data: {
+          ...(viewsCount !== undefined && { viewsCount: parseInt(viewsCount, 10) || 0 }),
+          ...(likesCount !== undefined && { likesCount: parseInt(likesCount, 10) || 0 })
+        }
+      });
+      res.json({ success: true, submission });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to update views' });
+    }
+  });
+
+  // GET /api/submissions/export/csv (CSV Export tool)
+  app.get('/api/submissions/export/csv', authMiddleware, async (req, res) => {
+    try {
+      const statusFilter = req.query.status as string | undefined;
+      const campaignIdFilter = req.query.campaignId as string | undefined;
+
+      const whereClause: any = { guildId };
+      if (statusFilter && statusFilter !== 'ALL') {
+        whereClause.status = statusFilter;
+      }
+      if (campaignIdFilter) {
+        whereClause.campaignId = campaignIdFilter;
+      }
+
+      const submissions = await prisma.submission.findMany({
+        where: whereClause,
+        include: {
+          user: true,
+          campaign: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      const csvData: SubmissionCSVData[] = submissions.map(s => ({
+        id: s.id,
+        shortId: s.shortId,
+        creatorUsername: s.user?.username || 'Unknown',
+        creatorTag: `@${s.user?.username || 'user'}`,
+        creatorId: s.userId,
+        creatorHandle: s.creatorHandle || viewFetcherService.extractHandleFromUrl(s.originalUrl) || 'N/A',
+        campaignName: s.campaign?.name || 'N/A',
+        brandName: s.campaign?.brandName || 'N/A',
+        platform: s.platform,
+        originalUrl: s.originalUrl,
+        viewsCount: s.viewsCount || 0,
+        likesCount: s.likesCount || 0,
+        status: s.status,
+        submittedAt: s.createdAt.toISOString(),
+        reviewedAt: s.reviewedAt ? s.reviewedAt.toISOString() : undefined,
+        reviewedBy: s.reviewedBy || undefined
+      }));
+
+      const csvString = generateSubmissionsCSV(csvData);
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=viralytics-submissions-${statusFilter || 'ALL'}-${Date.now()}.csv`);
+      res.status(200).send(csvString);
+    } catch (error) {
+      logger.error('Error exporting CSV:', error);
+      res.status(500).json({ error: 'Failed to generate CSV export' });
+    }
+  });
+
+  // GET /api/creators (Creator Analytics & Account Tracking)
+  app.get('/api/creators', authMiddleware, async (req, res) => {
+    try {
+      const members = await prisma.member.findMany({
+        where: { guildId },
+        include: {
+          user: {
+            include: {
+              submissions: {
+                where: { guildId },
+                include: { campaign: true }
+              }
+            }
+          }
+        }
+      });
+
+      const creators = members.map(m => {
+        const subs = m.user.submissions || [];
+        const approvedSubs = subs.filter(s => s.status === 'APPROVED');
+        const totalViews = approvedSubs.reduce((acc, curr) => acc + (curr.viewsCount || 0), 0);
+
+        // Collect unique social media handles submitted by this creator
+        const socialHandlesSet = new Set<string>();
+        subs.forEach(s => {
+          if (s.creatorHandle) socialHandlesSet.add(s.creatorHandle);
+          const parsed = viewFetcherService.extractHandleFromUrl(s.originalUrl);
+          if (parsed) socialHandlesSet.add(parsed);
+        });
+
+        return {
+          userId: m.userId,
+          username: m.user.username,
+          tag: `@${m.user.username}`,
+          avatarUrl: m.user.avatarUrl,
+          totalSubmissions: subs.length,
+          approvedSubmissions: approvedSubs.length,
+          rejectedSubmissions: subs.filter(s => s.status === 'REJECTED').length,
+          pendingSubmissions: subs.filter(s => s.status === 'PENDING').length,
+          totalViewsGenerated: totalViews,
+          socialHandles: Array.from(socialHandlesSet),
+          submissions: subs.map(s => ({
+            id: s.id,
+            campaignName: s.campaign?.name || 'N/A',
+            platform: s.platform,
+            url: s.originalUrl,
+            viewsCount: s.viewsCount || 0,
+            status: s.status,
+            createdAt: s.createdAt
+          }))
+        };
+      });
+
+      // Sort creators by total views generated descending
+      creators.sort((a, b) => b.totalViewsGenerated - a.totalViewsGenerated);
+
+      res.json(creators);
+    } catch (error) {
+      logger.error('Error fetching creator analytics:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -254,46 +712,6 @@ export function createDashboardApp() {
     }
   });
 
-  // GET /api/campaigns
-  app.get('/api/campaigns', authMiddleware, async (req, res) => {
-    try {
-      const campaigns = await prisma.campaign.findMany({
-        where: { guildId },
-        orderBy: { createdAt: 'desc' },
-      });
-      res.json(campaigns);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // POST /api/campaigns/:id/status
-  app.post('/api/campaigns/:id/status', authMiddleware, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-      
-      if (!['ACTIVE', 'PAUSED', 'ARCHIVED', 'CLOSED'].includes(status)) {
-        res.status(400).json({ error: 'Invalid status' });
-        return;
-      }
-
-      const campaign = await prisma.campaign.findUnique({ where: { id: id as string } });
-      if (!campaign || campaign.guildId !== guildId) {
-        res.status(404).json({ error: 'Not found' });
-        return;
-      }
-      
-      const updatedCampaign = await prisma.campaign.update({
-        where: { id: id as string },
-        data: { status },
-      });
-      res.json(updatedCampaign);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
   // GET /api/members
   app.get('/api/members', authMiddleware, async (req, res) => {
     try {
@@ -329,65 +747,6 @@ export function createDashboardApp() {
     }
   });
 
-  // POST /api/campaigns
-  app.post('/api/campaigns', authMiddleware, async (req, res) => {
-    try {
-      const { name, description, payPerApproved, platforms, guidelines } = req.body;
-      const campaign = await prisma.campaign.create({
-        data: {
-          guildId,
-          name,
-          description,
-          payPerApproved: payPerApproved ? parseFloat(payPerApproved) : null,
-          platforms: platforms || [],
-          guidelines,
-          status: 'ACTIVE',
-          createdBy: 'Dashboard',
-        }
-      });
-      res.json(campaign);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // GET /api/submissions/pending
-  app.get('/api/submissions/pending', authMiddleware, async (req, res) => {
-    try {
-      const submissions = await prisma.submission.findMany({
-        where: { guildId, status: 'PENDING' },
-        include: { user: true, campaign: true },
-        orderBy: { createdAt: 'asc' },
-      });
-      res.json(submissions);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  // POST /api/submissions/:id/approve
-  app.post('/api/submissions/:id/approve', authMiddleware, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const submission = await submissionService.approveSubmission(id as string, 'Dashboard');
-      res.json({ success: true, submission });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Failed to approve submission' });
-    }
-  });
-
-  // POST /api/submissions/:id/reject
-  app.post('/api/submissions/:id/reject', authMiddleware, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { reason } = req.body;
-      const submission = await submissionService.rejectSubmission(id as string, 'Dashboard', reason);
-      res.json({ success: true, submission });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Failed to reject submission' });
-    }
-  });
-
   // GET /api/payouts
   app.get('/api/payouts', authMiddleware, async (req, res) => {
     try {
@@ -417,7 +776,7 @@ export function createDashboardApp() {
   app.post('/api/payouts/:id/pay', authMiddleware, async (req, res) => {
     try {
       const { id } = req.params;
-      await payoutService.approvePayout(id as string, 'Dashboard');
+      await payoutService.approvePayout(id as string, (req as any).user?.username || 'Dashboard');
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message || 'Failed to process payout' });
@@ -520,7 +879,6 @@ export function createDashboardApp() {
       res.status(500).json({ error: 'Internal server error' });
     }
   });
-
 
   // Serve static files
   app.use(express.static(path.join(__dirname, '..', '..', 'dashboard', 'dist')));

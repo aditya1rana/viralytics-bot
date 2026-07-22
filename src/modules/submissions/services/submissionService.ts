@@ -3,6 +3,7 @@ import { prisma } from '../../../services/database.js';
 import { logger } from '../../../services/logger.js';
 import { validateAndNormalizeUrl } from '../../../services/urlValidator.js';
 import { generateShortId } from '../../../utils/helpers.js';
+import { viewFetcherService } from '../../../services/viewFetcherService.js';
 
 export const submissionService = {
   async findDuplicate(normalizedUrl: string, campaignId: string) {
@@ -35,6 +36,19 @@ export const submissionService = {
 
     const shortId = await generateShortId();
 
+    let meta = { viewsCount: 0, likesCount: 0, thumbnailUrl: null as string | null, creatorHandle: null as string | null };
+    try {
+      const fetched = await viewFetcherService.fetchMetadata(data.originalUrl, platform);
+      meta = {
+        viewsCount: fetched.viewsCount || 0,
+        likesCount: fetched.likesCount || 0,
+        thumbnailUrl: fetched.thumbnailUrl,
+        creatorHandle: fetched.creatorHandle
+      };
+    } catch {
+      // Keep defaults
+    }
+
     return prisma.$transaction(async (tx) => {
       const submission = await tx.submission.create({
         data: {
@@ -47,6 +61,10 @@ export const submissionService = {
           platform: platform,
           status: SubmissionStatus.PENDING,
           notes: data.notes,
+          viewsCount: meta.viewsCount,
+          likesCount: meta.likesCount,
+          thumbnailUrl: meta.thumbnailUrl,
+          creatorHandle: meta.creatorHandle,
         },
         include: {
           campaign: true,

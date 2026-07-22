@@ -2,14 +2,14 @@ export const getAuthToken = () => localStorage.getItem('token');
 export const setAuthToken = (token: string) => localStorage.setItem('token', token);
 export const removeAuthToken = () => localStorage.removeItem('token');
 
-const API_BASE = '/api'; // Use relative URLs since we proxy in dev or serve from same host in prod
+const API_BASE = '/api'; // Relative URLs for proxy/production serving
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = getAuthToken();
   const headers = new Headers(options.headers || {});
   
   if (token) {
-    headers.set('Authorization', token);
+    headers.set('Authorization', token.startsWith('Bearer ') ? token : `Bearer ${token}`);
   }
   
   if (!headers.has('Content-Type') && options.method !== 'GET') {
@@ -37,10 +37,13 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 }
 
 export const api = {
-  login: (password: string) => fetchWithAuth('/auth', {
-    method: 'POST',
-    body: JSON.stringify({ password }),
-  }),
+  login: (credentials: { username?: string; password?: string } | string) => {
+    const body = typeof credentials === 'string' ? { password: credentials } : credentials;
+    return fetchWithAuth('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
   getStats: () => fetchWithAuth('/stats'),
   getConfig: () => fetchWithAuth('/config'),
   updateConfig: (config: any) => fetchWithAuth('/config', {
@@ -53,17 +56,32 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(campaign),
   }),
+  updateCampaign: (id: string, campaign: any) => fetchWithAuth(`/campaigns/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(campaign),
+  }),
   updateCampaignStatus: (id: string, status: string) => fetchWithAuth(`/campaigns/${id}/status`, {
     method: 'POST',
     body: JSON.stringify({ status }),
   }),
   getMembers: (page = 1, search = '') => fetchWithAuth(`/members?page=${page}&search=${encodeURIComponent(search)}`),
-  getPendingSubmissions: () => fetchWithAuth('/submissions/pending'),
-  approveSubmission: (id: string) => fetchWithAuth(`/submissions/${id}/approve`, { method: 'POST' }),
+  getSubmissions: (status = 'ALL', campaignId = '', search = '') => 
+    fetchWithAuth(`/submissions?status=${status}&campaignId=${campaignId}&search=${encodeURIComponent(search)}`),
+  getPendingSubmissions: () => fetchWithAuth('/submissions?status=PENDING'),
+  approveSubmission: (id: string, viewsCount?: number) => fetchWithAuth(`/submissions/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ viewsCount })
+  }),
   rejectSubmission: (id: string, reason: string) => fetchWithAuth(`/submissions/${id}/reject`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   }),
+  updateSubmissionViews: (id: string, viewsCount: number, likesCount?: number) => fetchWithAuth(`/submissions/${id}/views`, {
+    method: 'POST',
+    body: JSON.stringify({ viewsCount, likesCount }),
+  }),
+  getCSVExportUrl: (status = 'ALL', campaignId = '') => `${API_BASE}/submissions/export/csv?status=${status}&campaignId=${campaignId}`,
+  getCreators: () => fetchWithAuth('/creators'),
   getPayouts: () => fetchWithAuth('/payouts'),
   calculatePayouts: (campaignId: string) => fetchWithAuth('/payouts/calculate', {
     method: 'POST',

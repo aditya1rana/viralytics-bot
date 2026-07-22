@@ -61,17 +61,19 @@ const submitVideoButton: ButtonHandler = {
         .setDescription('Please select which **ACTIVE** campaign you are submitting video link(s) for from the dropdown menu below:')
         .setColor(COLORS.PRIMARY);
 
-      await interaction.reply({
-        embeds: [embed],
-        components: [row],
-        ephemeral: true,
-      });
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true }).catch(() => null);
+      } else {
+        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true }).catch(() => null);
+      }
     } catch (error) {
       logger.error('Error in submitVideoButton handler:', error);
-      await interaction.reply({
-        content: '❌ An error occurred while fetching active campaigns.',
-        ephemeral: true,
-      }).catch(() => null);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ An error occurred while fetching active campaigns.',
+          ephemeral: true,
+        }).catch(() => null);
+      }
     }
   }
 };

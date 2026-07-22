@@ -247,7 +247,7 @@ export default function Campaigns() {
             </div>
 
             <form onSubmit={handleFormSubmit} className="flex-col gap-4">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Campaign Name *</label>
                   <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Summer Launch Viral Clips" style={{ width: '100%', padding: '10px', marginTop: '4px' }} />
@@ -255,6 +255,20 @@ export default function Campaigns() {
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Brand Name</label>
                   <input value={formData.brandName} onChange={e => setFormData({ ...formData, brandName: e.target.value })} placeholder="e.g. Nike / RedBull" style={{ width: '100%', padding: '10px', marginTop: '4px' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Campaign Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={e => setFormData({ ...formData, status: e.target.value })}
+                    style={{ width: '100%', padding: '10px', marginTop: '4px', borderRadius: '8px', background: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="PAUSED">PAUSED</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="DRAFT">DRAFT</option>
+                    <option value="CLOSED">CLOSED</option>
+                  </select>
                 </div>
               </div>
 

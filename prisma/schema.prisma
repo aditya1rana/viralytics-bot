@@ -150,7 +150,7 @@ model Guild {
   joinedAt DateTime @default(now())
   leftAt   DateTime?
 
-  isSubscribed          Boolean   @default(true)
+  isSubscribed          Boolean   @default(false)
   subscriptionTier      String    @default("ENTERPRISE")
   subscriptionExpiresAt DateTime?
 

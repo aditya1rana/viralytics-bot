@@ -50,7 +50,11 @@ const submitCampaignSelectHandler: SelectMenuHandler = {
       await interaction.showModal(modal);
     } catch (error) {
       logger.error('Error handling submit_active_campaign_select:', error);
-      await interaction.reply({ content: '❌ An error occurred while opening the submission form.', ephemeral: true }).catch(() => null);
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: '❌ An error occurred while opening the submission form.', ephemeral: true }).catch(() => null);
+      } else {
+        await interaction.reply({ content: '❌ An error occurred while opening the submission form.', ephemeral: true }).catch(() => null);
+      }
     }
   }
 };

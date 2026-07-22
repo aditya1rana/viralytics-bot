@@ -94,6 +94,33 @@ export default function Login() {
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
+
+        <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>Want to use Viralytics in your Discord server?</p>
+          <a
+            href="https://discord.com/oauth2/authorize?client_id=1285324546592870460&permissions=8&scope=bot%20applications.commands"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '12px',
+              color: 'white',
+              fontWeight: 600,
+              textDecoration: 'none',
+              fontSize: '14px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            🤖 Add Bot to Server
+          </a>
+        </div>
       </div>
     </div>
   );

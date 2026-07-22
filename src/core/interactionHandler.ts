@@ -3,11 +3,14 @@ import {
   Collection,
   Events,
   Interaction,
+  EmbedBuilder
 } from 'discord.js';
 import { Command, ButtonHandler, SelectMenuHandler, ModalHandler } from '../types/index.js';
 import { logger } from '../services/logger.js';
 import { checkCooldown } from '../services/cooldown.js';
 import { checkPermissions } from '../services/permissions.js';
+import { isGuildSubscribed } from '../services/subscriptionGuard.js';
+import COLORS from '../utils/colors.js';
 
 export function registerInteractionHandler(
   client: Client & { commands: Collection<string, Command> },
@@ -17,6 +20,26 @@ export function registerInteractionHandler(
 ) {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
+      // ── Subscription Gatekeeper ──
+      if (interaction.guildId) {
+        const isSubscribed = await isGuildSubscribed(interaction.guildId);
+        if (!isSubscribed) {
+          const errorEmbed = new EmbedBuilder()
+            .setTitle('🛑 Viralytics Subscription Required')
+            .setDescription('This server does not have an active **Viralytics** subscription.\n\nPlease contact the bot owner to approve and activate your server on the **Viralytics SaaS Dashboard**.')
+            .setColor(COLORS.ERROR);
+
+          if (interaction.isRepliable()) {
+            if (interaction.replied || interaction.deferred) {
+              await interaction.followUp({ embeds: [errorEmbed], ephemeral: true }).catch(() => null);
+            } else {
+              await interaction.reply({ embeds: [errorEmbed], ephemeral: true }).catch(() => null);
+            }
+          }
+          return;
+        }
+      }
+
       // ── Slash Commands ──
       if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);

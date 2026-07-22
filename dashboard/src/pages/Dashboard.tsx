@@ -10,6 +10,8 @@ import Moderation from './Moderation';
 import { Payouts } from './Payouts';
 import Creators from './Creators';
 
+import Subscriptions from './Subscriptions';
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,6 +23,7 @@ export default function Dashboard() {
 
   const navItems = [
     { path: '/', label: 'Overview', icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' },
+    { path: '/subscriptions', label: 'SaaS Subscriptions', icon: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z' },
     { path: '/campaigns', label: 'Campaigns', icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
     { path: '/moderation', label: 'Moderation', icon: 'M9.172 16.172a4 4 0 0 1 5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
     { path: '/creators', label: 'Creators & Analytics', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75' },
@@ -110,6 +113,7 @@ export default function Dashboard() {
       <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
         <Routes>
           <Route path="/" element={<Overview />} />
+          <Route path="/subscriptions" element={<Subscriptions />} />
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/moderation" element={<Moderation />} />
           <Route path="/creators" element={<Creators />} />

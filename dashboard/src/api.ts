@@ -90,4 +90,10 @@ export const api = {
   payPayout: (id: string) => fetchWithAuth(`/payouts/${id}/pay`, { method: 'POST' }),
   getActivityStats: () => fetchWithAuth('/stats/activity'),
   getLeaderboards: () => fetchWithAuth('/leaderboards'),
+  getInviteLink: () => fetchWithAuth('/auth/invite-link'),
+  getAdminSubscriptions: () => fetchWithAuth('/admin/subscriptions'),
+  toggleSubscription: (guildId: string, isSubscribed: boolean) => fetchWithAuth(`/admin/subscriptions/${guildId}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ isSubscribed }),
+  }),
 };

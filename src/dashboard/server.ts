@@ -9,6 +9,7 @@ import { payoutService } from '../modules/payouts/services/payoutService.js';
 import { ensureDefaultAdmin, hashPassword, verifyPassword } from '../services/authService.js';
 import { generateSubmissionsCSV, SubmissionCSVData } from '../services/csvExporterService.js';
 import { viewFetcherService } from '../services/viewFetcherService.js';
+import { setGuildSubscription } from '../services/subscriptionGuard.js';
 import logger from '../services/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -877,6 +878,62 @@ export function createDashboardApp() {
       });
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/auth/invite-link (Public endpoint for inviting the bot)
+  app.get('/api/auth/invite-link', (req, res) => {
+    const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID || '1285324546592870460'}&permissions=8&scope=bot%20applications.commands`;
+    res.json({ inviteUrl });
+  });
+
+  // GET /api/admin/subscriptions (Master Admin: List all servers and subscription statuses)
+  app.get('/api/admin/subscriptions', authMiddleware, async (req, res) => {
+    try {
+      const guilds = await prisma.guild.findMany({
+        orderBy: { joinedAt: 'desc' },
+        include: {
+          _count: {
+            select: { members: true, campaigns: true }
+          }
+        }
+      });
+
+      res.json(guilds.map(g => ({
+        id: g.id,
+        name: g.name,
+        iconUrl: g.iconUrl,
+        ownerId: g.ownerId,
+        joinedAt: g.joinedAt,
+        isSubscribed: g.isSubscribed,
+        subscriptionTier: g.subscriptionTier,
+        memberCount: g._count.members,
+        campaignCount: g._count.campaigns,
+        isPrimaryOwnerServer: g.id === config.DISCORD_GUILD_ID,
+      })));
+    } catch (error: any) {
+      logger.error('Error fetching admin subscriptions:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/admin/subscriptions/:targetGuildId/toggle (Master Admin: Toggle server subscription)
+  app.post('/api/admin/subscriptions/:targetGuildId/toggle', authMiddleware, async (req, res) => {
+    try {
+      const guildIdStr = String(req.params.targetGuildId);
+      const { isSubscribed } = req.body;
+
+      const updatedState = typeof isSubscribed === 'boolean' ? isSubscribed : true;
+      await setGuildSubscription(guildIdStr, updatedState);
+
+      const updatedGuild = await prisma.guild.findUnique({
+        where: { id: guildIdStr }
+      });
+
+      res.json(updatedGuild);
+    } catch (error: any) {
+      logger.error('Error updating subscription state:', error);
+      res.status(500).json({ error: error.message || 'Internal server error' });
     }
   });
 

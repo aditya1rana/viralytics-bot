@@ -8,7 +8,7 @@ import { ensureUser, ensureMember } from '../../../utils/helpers.js';
 import COLORS from '../../../utils/colors.js';
 
 const submitVideoModalHandler: ModalHandler = {
-  customId: 'submit_video_modal',
+  customId: /^submit_video_modal/,
 
   async execute(interaction) {
     try {
@@ -40,35 +40,29 @@ const submitVideoModalHandler: ModalHandler = {
         return;
       }
 
-      // Find any active campaign for this guild (use the first active one)
-      let campaign = await prisma.campaign.findFirst({
-        where: {
-          guildId,
-          status: 'ACTIVE',
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      // Resolve campaignId from customId (e.g. submit_video_modal:clx123...)
+      const targetCampaignId = interaction.customId.split(':')[1];
+      let campaign = null;
+
+      if (targetCampaignId) {
+        campaign = await prisma.campaign.findUnique({
+          where: { id: targetCampaignId }
+        });
+      }
 
       if (!campaign) {
-        // Fallback or auto-create a default campaign
         campaign = await prisma.campaign.findFirst({
           where: {
             guildId,
-            name: 'General Submissions',
-          }
+            status: 'ACTIVE',
+          },
+          orderBy: { createdAt: 'desc' },
         });
+      }
 
-        if (!campaign) {
-          campaign = await prisma.campaign.create({
-            data: {
-              guildId,
-              name: 'General Submissions',
-              description: 'Automatically created campaign for general submissions.',
-              status: 'ACTIVE',
-              createdBy: userId,
-            }
-          });
-        }
+      if (!campaign || campaign.status !== 'ACTIVE') {
+        await interaction.editReply({ content: '❌ The selected campaign is no longer **ACTIVE**. Submissions are only accepted for active campaigns.' });
+        return;
       }
 
       // Process each link

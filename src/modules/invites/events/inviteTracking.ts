@@ -4,8 +4,15 @@ import { logger } from '../../../services/logger.js';
 import { InviteService } from '../services/inviteService.js';
 import { xpService } from '../../xp/services/xpService.js';
 
-// Module-level map to cache invites: Map<guildId, Collection<code, uses>>
-const inviteCache = new Map<string, Collection<string, number>>();
+interface CachedInvite {
+  code: string;
+  uses: number;
+  inviterId: string;
+  maxUses: number;
+}
+
+// Module-level map to cache invites: Map<guildId, Collection<code, CachedInvite>>
+const inviteCache = new Map<string, Collection<string, CachedInvite>>();
 
 const clientReadyEvent: BotEvent<'ready'> = {
   name: Events.ClientReady as any,
@@ -16,13 +23,18 @@ const clientReadyEvent: BotEvent<'ready'> = {
       for (const [id, guild] of client.guilds.cache) {
         try {
           const invites = await guild.invites.fetch();
-          const codeUses = new Collection<string, number>();
+          const codeData = new Collection<string, CachedInvite>();
           invites.forEach((inv: any) => {
-            codeUses.set(inv.code, inv.uses || 0);
+            codeData.set(inv.code, {
+              code: inv.code,
+              uses: inv.uses || 0,
+              inviterId: inv.inviter?.id || '',
+              maxUses: inv.maxUses || 0
+            });
           });
-          inviteCache.set(id, codeUses);
+          inviteCache.set(id, codeData);
         } catch (e) {
-          logger.warn(`Could not fetch invites for guild ${guild.name}: ${e}`);
+          logger.warn(`Could not fetch invites for guild ${guild.name} (${id}). Make sure the bot has 'Manage Server' (MANAGE_GUILD) permission: ${e}`);
         }
       }
       logger.info('Invite cache built successfully.');
@@ -38,14 +50,14 @@ const inviteCreateEvent: BotEvent<'inviteCreate'> = {
   async execute(invite: any) {
     try {
       if (!invite.guild) return;
-      const guildInvites = inviteCache.get(invite.guild.id);
-      if (guildInvites) {
-        guildInvites.set(invite.code, invite.uses || 0);
-      } else {
-        const codeUses = new Collection<string, number>();
-        codeUses.set(invite.code, invite.uses || 0);
-        inviteCache.set(invite.guild.id, codeUses);
-      }
+      const cached = inviteCache.get(invite.guild.id) || new Collection<string, CachedInvite>();
+      cached.set(invite.code, {
+        code: invite.code,
+        uses: invite.uses || 0,
+        inviterId: invite.inviter?.id || '',
+        maxUses: invite.maxUses || 0
+      });
+      inviteCache.set(invite.guild.id, cached);
     } catch (error) {
       logger.error('Error handling InviteCreate:', error);
     }
@@ -60,36 +72,78 @@ const guildMemberAddEvent: BotEvent<'guildMemberAdd'> = {
 
     try {
       const guild = member.guild;
-      const cachedInvites = inviteCache.get(guild.id) || new Collection<string, number>();
-      const currentInvites = await guild.invites.fetch().catch(() => new Collection<string, any>());
+      const cachedInvites = inviteCache.get(guild.id) || new Collection<string, CachedInvite>();
+      const currentInvites = await guild.invites.fetch().catch((e: any) => {
+        logger.warn(`Failed to fetch invites on member join for guild ${guild.name}: ${e}`);
+        return new Collection<string, any>();
+      });
       
       let usedInvite: any;
       
-      // Find which invite's uses increased
+      // 1. Find which invite in currentInvites had its uses count increase
       currentInvites.forEach((inv: any) => {
-        const cachedUses = cachedInvites.get(inv.code);
-        if (cachedUses !== undefined && (inv.uses || 0) > cachedUses) {
-          usedInvite = inv;
+        const cached = cachedInvites.get(inv.code);
+        if (cached !== undefined) {
+          if ((inv.uses || 0) > cached.uses) {
+            usedInvite = {
+              code: inv.code,
+              inviterId: inv.inviter?.id || cached.inviterId
+            };
+          }
+        } else if ((inv.uses || 0) > 0) {
+          // New invite created while bot wasn't looking
+          usedInvite = {
+            code: inv.code,
+            inviterId: inv.inviter?.id || ''
+          };
         }
       });
 
-      // Update cache with new current invites
-      const codeUses = new Collection<string, number>();
-      currentInvites.forEach((inv: any) => {
-        codeUses.set(inv.code, inv.uses || 0);
-      });
-      inviteCache.set(guild.id, codeUses);
-
-      if (usedInvite && usedInvite.inviter) {
-        const inviterId = usedInvite.inviter.id;
-        const isFake = await InviteService.detectFakeInvite(member);
-        
-        await InviteService.trackInvite(guild.id, inviterId, member.id, usedInvite.code, isFake);
-        
-        if (!isFake) {
-          // Award XP to the inviter
-          await xpService.addXp(guild.id, inviterId, 50, 'Invite bonus'); // Custom XP amount for invites
+      // 2. If no invite was found in currentInvites, check for single-use / max-uses invites that disappeared
+      if (!usedInvite && cachedInvites.size > 0) {
+        for (const [code, cached] of cachedInvites.entries()) {
+          if (!currentInvites.has(code)) {
+            // Invite disappeared from Discord (e.g. 1-use invite reached maxUses)
+            usedInvite = {
+              code: code,
+              inviterId: cached.inviterId
+            };
+            break;
+          }
         }
+      }
+
+      // 3. Update cache with new current invites data
+      const updatedCodeData = new Collection<string, CachedInvite>();
+      currentInvites.forEach((inv: any) => {
+        const cached = cachedInvites.get(inv.code);
+        updatedCodeData.set(inv.code, {
+          code: inv.code,
+          uses: inv.uses || 0,
+          inviterId: inv.inviter?.id || cached?.inviterId || '',
+          maxUses: inv.maxUses || 0
+        });
+      });
+      inviteCache.set(guild.id, updatedCodeData);
+
+      // 4. Record invite if inviter was identified and not self-invite
+      if (usedInvite && usedInvite.inviterId) {
+        const inviterId = usedInvite.inviterId;
+
+        // Prevent self-invites
+        if (inviterId !== member.id) {
+          const isFake = await InviteService.detectFakeInvite(member);
+          
+          await InviteService.trackInvite(guild.id, inviterId, member.id, usedInvite.code, isFake);
+          
+          if (!isFake) {
+            // Award XP to the inviter
+            await xpService.addXp(guild.id, inviterId, 50, 'Invite bonus').catch(() => null);
+          }
+          logger.info(`Tracked invite: ${member.user.tag} (${member.id}) invited by ${inviterId} using code ${usedInvite.code}`);
+        }
+      } else {
+        logger.info(`Could not match inviter for member ${member.user.tag} (${member.id}) - likely joined via Vanity URL or Bot / Direct.`);
       }
     } catch (error) {
       logger.error('Error handling GuildMemberAdd for invites:', error);
@@ -112,3 +166,4 @@ const guildMemberRemoveEvent: BotEvent<'guildMemberRemove'> = {
 };
 
 export default [clientReadyEvent, inviteCreateEvent, guildMemberAddEvent, guildMemberRemoveEvent];
+

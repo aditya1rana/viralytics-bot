@@ -15,16 +15,46 @@ export class InviteService {
       await ensureMember(guildId, inviterId);
       await ensureMember(guildId, inviteeId);
 
-      // Create invite record
-      const invite = await prisma.invite.create({
-        data: {
-          guildId,
-          inviterId,
-          inviteeId,
-          code,
-          status
-        }
+      // Check if an invite record already exists for (guildId, inviteeId)
+      const existingInvite = await prisma.invite.findUnique({
+        where: { guildId_inviteeId: { guildId, inviteeId } }
       });
+
+      let invite;
+      if (existingInvite) {
+        // If member previously left, decrement leftInvites for previous inviter
+        if (existingInvite.status === InviteStatus.LEFT && existingInvite.inviterId) {
+          await prisma.member.update({
+            where: { guildId_userId: { guildId, userId: existingInvite.inviterId } },
+            data: { leftInvites: { decrement: 1 } }
+          }).catch(() => null);
+        }
+
+        invite = await prisma.invite.update({
+          where: { id: existingInvite.id },
+          data: {
+            inviterId,
+            code,
+            status,
+            joinedAt: new Date(),
+            leftAt: null,
+            isFake,
+            fakeReason: isFake ? 'Account too new or self-invite' : null
+          }
+        });
+      } else {
+        invite = await prisma.invite.create({
+          data: {
+            guildId,
+            inviterId,
+            inviteeId,
+            code,
+            status,
+            isFake,
+            fakeReason: isFake ? 'Account too new or self-invite' : null
+          }
+        });
+      }
 
       // Update inviter's stats
       if (isFake) {
@@ -91,12 +121,24 @@ export class InviteService {
    */
   static async getInviteLeaderboard(guildId: string, limit: number = 10) {
     try {
-      const members = await prisma.member.findMany({
-        where: { guildId },
-        orderBy: { totalInvites: 'desc' },
-        take: limit
+      const allMembers = await prisma.member.findMany({
+        where: { guildId }
       });
-      return members;
+
+      const sorted = allMembers
+        .map(m => ({
+          ...m,
+          validInvites: (m.totalInvites + m.bonusInvites) - m.leftInvites - m.fakeInvites
+        }))
+        .sort((a, b) => {
+          if (b.validInvites !== a.validInvites) {
+            return b.validInvites - a.validInvites;
+          }
+          return b.totalInvites - a.totalInvites;
+        })
+        .slice(0, limit);
+
+      return sorted;
     } catch (error) {
       logger.error(`Error getting invite leaderboard:`, error);
       throw error;

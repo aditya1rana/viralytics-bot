@@ -15,6 +15,17 @@ export const verificationService = {
       if (config?.verificationLogChannelId) {
         const logChannel = guild.channels.cache.get(config.verificationLogChannelId) as TextChannel | undefined;
         if (logChannel) {
+          // Look up inviter from database
+          const invite = await prisma.invite.findFirst({
+            where: { guildId: guild.id, inviteeId: member.id },
+            orderBy: { joinedAt: 'desc' }
+          });
+
+          let inviterText = 'Unknown / Direct Link';
+          if (invite && invite.inviterId) {
+            inviterText = `<@${invite.inviterId}> (\`${invite.inviterId}\`)`;
+          }
+
           const logEmbed = new EmbedBuilder()
             .setTitle('👤 Member Verified')
             .setColor(COLORS.SUCCESS)
@@ -22,6 +33,7 @@ export const verificationService = {
             .addFields(
               { name: 'User', value: `<@${member.id}> (${member.user.username})`, inline: true },
               { name: 'User ID', value: `\`${member.id}\``, inline: true },
+              { name: 'Invited By', value: inviterText, inline: true },
               { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R> (${accountAgeDays(member.user.createdAt)} days ago)`, inline: false },
               { name: 'Verified At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: false }
             )

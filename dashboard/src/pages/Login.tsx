@@ -98,7 +98,7 @@ export default function Login() {
         <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>Want to use Viralytics in your Discord server?</p>
           <a
-            href="https://discord.com/oauth2/authorize?client_id=1285324546592870460&permissions=8&scope=bot%20applications.commands"
+            href="https://discord.com/oauth2/authorize?client_id=1528892453287886898&permissions=8&scope=bot%20applications.commands"
             target="_blank"
             rel="noreferrer"
             style={{

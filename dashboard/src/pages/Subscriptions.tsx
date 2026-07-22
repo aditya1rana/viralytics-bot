@@ -47,7 +47,7 @@ export default function Subscriptions() {
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <a
-            href="https://discord.com/oauth2/authorize?client_id=1285324546592870460&permissions=8&scope=bot%20applications.commands"
+            href="https://discord.com/oauth2/authorize?client_id=1528892453287886898&permissions=8&scope=bot%20applications.commands"
             target="_blank"
             rel="noreferrer"
             style={{

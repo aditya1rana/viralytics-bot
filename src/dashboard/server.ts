@@ -883,8 +883,9 @@ export function createDashboardApp() {
 
   // GET /api/auth/invite-link (Public endpoint for inviting the bot)
   app.get('/api/auth/invite-link', (req, res) => {
-    const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID || '1285324546592870460'}&permissions=8&scope=bot%20applications.commands`;
-    res.json({ inviteUrl });
+    const clientId = config.DISCORD_CLIENT_ID || '1528892453287886898';
+    const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`;
+    res.json({ inviteUrl, clientId });
   });
 
   // GET /api/admin/subscriptions (Master Admin: List all servers and subscription statuses)

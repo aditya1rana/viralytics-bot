@@ -27,17 +27,28 @@ async function main() {
   // Register interaction handler
   registerInteractionHandler(client, buttons, selectMenus, modals);
 
+  const { syncGuildsWithDiscord } = await import('./services/subscriptionGuard.js');
+
   // Ready event
-  client.once(Events.ClientReady, (readyClient) => {
+  client.once(Events.ClientReady, async (readyClient) => {
     logger.info(`✅ Ready! Logged in as ${readyClient.user.tag}`);
     logger.info(`📡 Serving ${readyClient.guilds.cache.size} guild(s)`);
     logger.info(`📌 ${client.commands.size} commands loaded`);
+
+    // Sync all active guilds with DB
+    await syncGuildsWithDiscord(readyClient);
+  });
+
+  // Guild join event
+  client.on(Events.GuildCreate, async (guild) => {
+    logger.info(`➕ Bot joined new server: ${guild.name} (${guild.id})`);
+    await syncGuildsWithDiscord(client);
   });
 
   // Start Dashboard Express Server
   const port = process.env.PORT || 10000;
   const { createDashboardApp } = await import('./dashboard/server.js');
-  const app = createDashboardApp();
+  const app = createDashboardApp(client);
   
   const server = app.listen(port, () => {
     logger.info(`🌐 Dashboard & API server listening on port ${port}`);

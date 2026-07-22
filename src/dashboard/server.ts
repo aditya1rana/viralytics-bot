@@ -9,13 +9,13 @@ import { payoutService } from '../modules/payouts/services/payoutService.js';
 import { ensureDefaultAdmin, hashPassword, verifyPassword } from '../services/authService.js';
 import { generateSubmissionsCSV, SubmissionCSVData } from '../services/csvExporterService.js';
 import { viewFetcherService } from '../services/viewFetcherService.js';
-import { setGuildSubscription } from '../services/subscriptionGuard.js';
+import { setGuildSubscription, syncGuildsWithDiscord } from '../services/subscriptionGuard.js';
 import logger from '../services/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function createDashboardApp() {
+export function createDashboardApp(discordClient?: any) {
   const app = express();
 
   app.use(cors());
@@ -891,6 +891,10 @@ export function createDashboardApp() {
   // GET /api/admin/subscriptions (Master Admin: List all servers and subscription statuses)
   app.get('/api/admin/subscriptions', authMiddleware, async (req, res) => {
     try {
+      if (discordClient) {
+        await syncGuildsWithDiscord(discordClient);
+      }
+
       const guilds = await prisma.guild.findMany({
         orderBy: { joinedAt: 'desc' },
         include: {

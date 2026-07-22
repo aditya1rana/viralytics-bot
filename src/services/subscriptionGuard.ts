@@ -52,3 +52,31 @@ export async function setGuildSubscription(guildId: string, isSubscribed: boolea
     throw error;
   }
 }
+
+export async function syncGuildsWithDiscord(client?: any): Promise<void> {
+  if (!client || !client.guilds) return;
+
+  try {
+    const activeGuilds = Array.from(client.guilds.cache.values()) as any[];
+    for (const g of activeGuilds) {
+      await prisma.guild.upsert({
+        where: { id: g.id },
+        update: {
+          name: g.name,
+          iconUrl: g.iconURL() || null,
+          ownerId: g.ownerId,
+          leftAt: null,
+        },
+        create: {
+          id: g.id,
+          name: g.name,
+          iconUrl: g.iconURL() || null,
+          ownerId: g.ownerId,
+          isSubscribed: g.id === config.DISCORD_GUILD_ID,
+        }
+      });
+    }
+  } catch (error) {
+    logger.error('Error syncing guilds with Discord client cache:', error);
+  }
+}

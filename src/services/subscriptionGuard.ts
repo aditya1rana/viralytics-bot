@@ -47,6 +47,12 @@ export async function setGuildSubscription(guildId: string, isSubscribed: boolea
     });
 
     await cache.set(cacheKey, isSubscribed, 300);
+
+    // If approved, instantly deploy slash commands directly to this guild!
+    if (isSubscribed) {
+      const { deployGuildCommands } = await import('../core/deployCommands.js');
+      await deployGuildCommands(guildId).catch((err) => logger.error(`Error deploying guild commands to ${guildId}:`, err));
+    }
   } catch (error) {
     logger.error(`Error updating subscription for guild ${guildId}:`, error);
     throw error;
@@ -57,9 +63,11 @@ export async function syncGuildsWithDiscord(client?: any): Promise<void> {
   if (!client || !client.guilds) return;
 
   try {
+    const { deployGuildCommands } = await import('../core/deployCommands.js');
     const activeGuilds = Array.from(client.guilds.cache.values()) as any[];
+    
     for (const g of activeGuilds) {
-      await prisma.guild.upsert({
+      const dbGuild = await prisma.guild.upsert({
         where: { id: g.id },
         update: {
           name: g.name,
@@ -75,6 +83,11 @@ export async function syncGuildsWithDiscord(client?: any): Promise<void> {
           isSubscribed: g.id === config.DISCORD_GUILD_ID,
         }
       });
+
+      // Deploy commands to all subscribed guilds instantly
+      if (dbGuild.isSubscribed || g.id === config.DISCORD_GUILD_ID) {
+        await deployGuildCommands(g.id, client.commands).catch(() => null);
+      }
     }
   } catch (error) {
     logger.error('Error syncing guilds with Discord client cache:', error);

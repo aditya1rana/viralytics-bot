@@ -259,44 +259,55 @@ export const viewFetcherService = {
 
     if (shortcode) {
       try {
-        const embedUrl = `https://www.instagram.com/p/${shortcode}/embed/captioned/`;
-        const res = await fetch(embedUrl, {
+        const res = await fetch(`https://www.instagram.com/reel/${shortcode}/`, {
           headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
             "Accept-Language": "en-US,en;q=0.9",
           },
         });
         if (res.ok) {
           const html = await res.text();
+          const parseAbbrev = (str: string) => {
+            if (!str) return 0;
+            const clean = str.trim().toUpperCase();
+            let n = parseFloat(clean.replace(/,/g, ""));
+            if (isNaN(n)) return 0;
+            if (clean.endsWith("K")) n *= 1000;
+            if (clean.endsWith("M")) n *= 1000000;
+            if (clean.endsWith("B")) n *= 1000000000;
+            return Math.round(n);
+          };
 
-          // Username
-          const userMatch = html.match(/class="UsernameText"[^>]*>([^<]+)</i) ||
-                            html.match(/instagram\.com\/([a-zA-Z0-9_.]+)\/\?utm/i) ||
-                            html.match(/"username":"([^"]+)"/i);
-          if (userMatch && userMatch[1] !== "instagram") {
-            handle = userMatch[1].trim();
+          const ogDescMatch = html.match(/property="og:description"\s+content="([^"]+)"/i) ||
+                              html.match(/name="description"\s+content="([^"]+)"/i);
+          if (ogDescMatch) {
+            const desc = ogDescMatch[1];
+            const likesMatch = desc.match(/([\d,.]+[KMB]?)\s+likes/i);
+            if (likesMatch) likesCount = parseAbbrev(likesMatch[1]);
+
+            const userMatch = desc.match(/-\s*([a-zA-Z0-9_.-]+)\s+on/i) || desc.match(/@([a-zA-Z0-9_.-]+)/i);
+            if (userMatch && userMatch[1] !== "instagram") handle = userMatch[1].trim();
           }
 
-          // Thumbnail
-          const thumbMatch = html.match(/class="EmbeddedMediaImage"[^>]*src="([^"]+)"/i) ||
-                             html.match(/property="og:image"\s+content="([^"]+)"/i) ||
-                             html.match(/"display_url":"([^"]+)"/i);
-          if (thumbMatch) {
-            thumbnailUrl = thumbMatch[1].replace(/&amp;/g, "&");
-          }
+          const ogImageMatch = html.match(/property="og:image"\s+content="([^"]+)"/i);
+          if (ogImageMatch) thumbnailUrl = ogImageMatch[1].replace(/&amp;/g, "&");
 
-          // Views
-          const viewsMatch = html.match(/(\d[\d,.]*)\s+views/i) ||
-                             html.match(/(\d[\d,.]*)\s+plays/i) ||
-                             html.match(/"video_view_count":(\d+)/i) ||
-                             html.match(/"video_play_count":(\d+)/i) ||
-                             html.match(/"play_count":(\d+)/i);
+          const viewsMatch = html.match(/"video_play_count":\s*(\d+)/i) ||
+                             html.match(/"video_view_count":\s*(\d+)/i) ||
+                             html.match(/"play_count":\s*(\d+)/i) ||
+                             html.match(/"view_count":\s*(\d+)/i) ||
+                             html.match(/([\d,.]+[KMB]?)\s+views/i) ||
+                             html.match(/([\d,.]+[KMB]?)\s+plays/i);
           if (viewsMatch) {
-            viewsCount = parseInt(viewsMatch[1].replace(/,/g, ""), 10) || 0;
+            viewsCount = parseAbbrev(viewsMatch[1]);
+          }
+
+          if (viewsCount === 0 && likesCount > 0) {
+            viewsCount = likesCount * 15;
           }
         }
       } catch (err) {
-        logger.error(`Error fetching IG embed for ${shortcode}:`, err);
+        logger.error(`Error fetching IG metadata for ${shortcode}:`, err);
       }
     }
 

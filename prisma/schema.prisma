@@ -364,6 +364,13 @@ model Campaign {
   maxSubmissionsPerUser Int?
   maxTotalSubmissions   Int?
 
+  minViewsPerVideo    Int? @default(0)
+  maxViewsPerVideo    Int? @default(0)
+  minViewsPerCampaign Int? @default(0)
+  maxViewsPerCampaign Int? @default(0)
+  minViewsPerCreator  Int? @default(0)
+  maxViewsPerCreator  Int? @default(0)
+
   roleId    String?
   channelId String?
   logChannelId String?

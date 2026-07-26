@@ -258,56 +258,91 @@ export const viewFetcherService = {
     }
 
     if (shortcode) {
-      try {
-        const res = await fetch(`https://www.instagram.com/reel/${shortcode}/`, {
-          headers: {
-            "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
-            "Accept-Language": "en-US,en;q=0.9",
-          },
-        });
-        if (res.ok) {
-          const html = await res.text();
-          const parseAbbrev = (str: string) => {
-            if (!str) return 0;
-            const clean = str.trim().toUpperCase();
-            let n = parseFloat(clean.replace(/,/g, ""));
-            if (isNaN(n)) return 0;
-            if (clean.endsWith("K")) n *= 1000;
-            if (clean.endsWith("M")) n *= 1000000;
-            if (clean.endsWith("B")) n *= 1000000000;
-            return Math.round(n);
-          };
+      const apifyToken = String(process.env.APIFY_TOKEN || "").trim();
+      let apifySuccess = false;
 
-          const ogDescMatch = html.match(/property="og:description"\s+content="([^"]+)"/i) ||
-                              html.match(/name="description"\s+content="([^"]+)"/i);
-          if (ogDescMatch) {
-            const desc = ogDescMatch[1];
-            const likesMatch = desc.match(/([\d,.]+[KMB]?)\s+likes/i);
-            if (likesMatch) likesCount = parseAbbrev(likesMatch[1]);
-
-            const userMatch = desc.match(/-\s*([a-zA-Z0-9_.-]+)\s+on/i) || desc.match(/@([a-zA-Z0-9_.-]+)/i);
-            if (userMatch && userMatch[1] !== "instagram") handle = userMatch[1].trim();
-          }
-
-          const ogImageMatch = html.match(/property="og:image"\s+content="([^"]+)"/i);
-          if (ogImageMatch) thumbnailUrl = ogImageMatch[1].replace(/&amp;/g, "&");
-
-          const viewsMatch = html.match(/"video_play_count":\s*(\d+)/i) ||
-                             html.match(/"video_view_count":\s*(\d+)/i) ||
-                             html.match(/"play_count":\s*(\d+)/i) ||
-                             html.match(/"view_count":\s*(\d+)/i) ||
-                             html.match(/([\d,.]+[KMB]?)\s+views/i) ||
-                             html.match(/([\d,.]+[KMB]?)\s+plays/i);
-          if (viewsMatch) {
-            viewsCount = parseAbbrev(viewsMatch[1]);
-          }
-
-          if (viewsCount === 0 && likesCount > 0) {
-            viewsCount = likesCount * 15;
+      if (apifyToken) {
+        const reelUrl = `https://www.instagram.com/reel/${shortcode}/`;
+        const actorsToTry = ["apify~instagram-reel-scraper", "apify~instagram-scraper"];
+        for (const actor of actorsToTry) {
+          if (apifySuccess) break;
+          try {
+            const apifyUrl = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${apifyToken}`;
+            const res = await fetch(apifyUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ directUrls: [reelUrl], username: [reelUrl], urls: [reelUrl], resultsLimit: 1 })
+            });
+            if (res.ok) {
+              const items = await res.json();
+              const item = items?.[0];
+              if (item) {
+                handle = item.ownerUsername || item.username || handle;
+                thumbnailUrl = item.displayUrl || item.thumbnailUrl || thumbnailUrl;
+                viewsCount = Number(item.videoPlayCount || item.videoViewCount || item.playsCount || item.playCount || item.viewCount || 0);
+                likesCount = Number(item.likesCount || item.likeCount || 0);
+                if (viewsCount === 0 && likesCount > 0) viewsCount = likesCount * 15;
+                apifySuccess = true;
+              }
+            }
+          } catch (e) {
+            logger.error(`Apify call failed for ${actor}:`, e);
           }
         }
-      } catch (err) {
-        logger.error(`Error fetching IG metadata for ${shortcode}:`, err);
+      }
+
+      if (!apifySuccess) {
+        try {
+          const res = await fetch(`https://www.instagram.com/reel/${shortcode}/`, {
+            headers: {
+              "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+              "Accept-Language": "en-US,en;q=0.9",
+            },
+          });
+          if (res.ok) {
+            const html = await res.text();
+            const parseAbbrev = (str: string) => {
+              if (!str) return 0;
+              const clean = str.trim().toUpperCase();
+              let n = parseFloat(clean.replace(/,/g, ""));
+              if (isNaN(n)) return 0;
+              if (clean.endsWith("K")) n *= 1000;
+              if (clean.endsWith("M")) n *= 1000000;
+              if (clean.endsWith("B")) n *= 1000000000;
+              return Math.round(n);
+            };
+
+            const ogDescMatch = html.match(/property="og:description"\s+content="([^"]+)"/i) ||
+                                html.match(/name="description"\s+content="([^"]+)"/i);
+            if (ogDescMatch) {
+              const desc = ogDescMatch[1];
+              const likesMatch = desc.match(/([\d,.]+[KMB]?)\s+likes/i);
+              if (likesMatch) likesCount = parseAbbrev(likesMatch[1]);
+
+              const userMatch = desc.match(/-\s*([a-zA-Z0-9_.-]+)\s+on/i) || desc.match(/@([a-zA-Z0-9_.-]+)/i);
+              if (userMatch && userMatch[1] !== "instagram") handle = userMatch[1].trim();
+            }
+
+            const ogImageMatch = html.match(/property="og:image"\s+content="([^"]+)"/i);
+            if (ogImageMatch) thumbnailUrl = ogImageMatch[1].replace(/&amp;/g, "&");
+
+            const viewsMatch = html.match(/"video_play_count":\s*(\d+)/i) ||
+                               html.match(/"video_view_count":\s*(\d+)/i) ||
+                               html.match(/"play_count":\s*(\d+)/i) ||
+                               html.match(/"view_count":\s*(\d+)/i) ||
+                               html.match(/([\d,.]+[KMB]?)\s+views/i) ||
+                               html.match(/([\d,.]+[KMB]?)\s+plays/i);
+            if (viewsMatch) {
+              viewsCount = parseAbbrev(viewsMatch[1]);
+            }
+
+            if (viewsCount === 0 && likesCount > 0) {
+              viewsCount = likesCount * 15;
+            }
+          }
+        } catch (err) {
+          logger.error(`Error fetching IG metadata for ${shortcode}:`, err);
+        }
       }
     }
 

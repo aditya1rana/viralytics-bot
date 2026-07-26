@@ -281,7 +281,7 @@ export const viewFetcherService = {
                 thumbnailUrl = item.displayUrl || item.thumbnailUrl || thumbnailUrl;
                 viewsCount = Number(item.videoPlayCount || item.videoViewCount || item.playsCount || item.playCount || item.viewCount || 0);
                 likesCount = Number(item.likesCount || item.likeCount || 0);
-                if (viewsCount === 0 && likesCount > 0) viewsCount = likesCount * 15;
+                // Only use real views from Apify
                 apifySuccess = true;
               }
             }
@@ -336,9 +336,7 @@ export const viewFetcherService = {
               viewsCount = parseAbbrev(viewsMatch[1]);
             }
 
-            if (viewsCount === 0 && likesCount > 0) {
-              viewsCount = likesCount * 15;
-            }
+            // Real views only
           }
         } catch (err) {
           logger.error(`Error fetching IG metadata for ${shortcode}:`, err);

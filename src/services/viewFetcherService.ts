@@ -86,25 +86,97 @@ export const viewFetcherService = {
   },
 
   async fetchTikTokMetadata(url: string): Promise<SocialMetadata> {
-    const handle = this.extractHandleFromUrl(url);
+    let handle = this.extractHandleFromUrl(url);
+    let thumbnailUrl: string | null = null;
+
+    try {
+      const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+      const res = await fetch(oembedUrl);
+      if (res.ok) {
+        const data: any = await res.json();
+        if (data.author_unique_id) handle = data.author_unique_id;
+        else if (data.author_name) handle = data.author_name;
+        if (data.thumbnail_url) thumbnailUrl = data.thumbnail_url;
+      }
+    } catch {
+      // Keep defaults
+    }
+
     return {
       platform: 'TIKTOK',
       viewsCount: 0,
       likesCount: 0,
-      thumbnailUrl: 'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80',
+      thumbnailUrl: thumbnailUrl || 'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80',
       creatorHandle: handle || 'tiktok_creator',
       originalUrl: url,
     };
   },
 
   async fetchInstagramMetadata(url: string): Promise<SocialMetadata> {
-    const handle = this.extractHandleFromUrl(url);
+    let handle = this.extractHandleFromUrl(url);
+    let viewsCount = 0;
+    let likesCount = 0;
+    let thumbnailUrl: string | null = null;
+
+    let shortcode = "";
+    const parts = url.split("/");
+    const idx = parts.findIndex(p => p === "reel" || p === "p" || p === "reels");
+    if (idx !== -1 && parts[idx + 1]) {
+      shortcode = parts[idx + 1].split("?")[0].split("&")[0];
+    }
+    if (idx > 3 && parts[idx - 1] && parts[idx - 1] !== "www.instagram.com" && parts[idx - 1] !== "instagram.com") {
+      handle = parts[idx - 1].replace("@", "");
+    }
+
+    if (shortcode) {
+      try {
+        const embedUrl = `https://www.instagram.com/p/${shortcode}/embed/captioned/`;
+        const res = await fetch(embedUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+        });
+        if (res.ok) {
+          const html = await res.text();
+
+          // Username
+          const userMatch = html.match(/class="UsernameText"[^>]*>([^<]+)</i) ||
+                            html.match(/instagram\.com\/([a-zA-Z0-9_.]+)\/\?utm/i) ||
+                            html.match(/"username":"([^"]+)"/i);
+          if (userMatch && userMatch[1] !== "instagram") {
+            handle = userMatch[1].trim();
+          }
+
+          // Thumbnail
+          const thumbMatch = html.match(/class="EmbeddedMediaImage"[^>]*src="([^"]+)"/i) ||
+                             html.match(/property="og:image"\s+content="([^"]+)"/i) ||
+                             html.match(/"display_url":"([^"]+)"/i);
+          if (thumbMatch) {
+            thumbnailUrl = thumbMatch[1].replace(/&amp;/g, "&");
+          }
+
+          // Views
+          const viewsMatch = html.match(/(\d[\d,.]*)\s+views/i) ||
+                             html.match(/(\d[\d,.]*)\s+plays/i) ||
+                             html.match(/"video_view_count":(\d+)/i) ||
+                             html.match(/"video_play_count":(\d+)/i) ||
+                             html.match(/"play_count":(\d+)/i);
+          if (viewsMatch) {
+            viewsCount = parseInt(viewsMatch[1].replace(/,/g, ""), 10) || 0;
+          }
+        }
+      } catch (err) {
+        logger.error(`Error fetching IG embed for ${shortcode}:`, err);
+      }
+    }
+
     return {
       platform: 'INSTAGRAM_REELS',
-      viewsCount: 0,
-      likesCount: 0,
-      thumbnailUrl: 'https://images.unsplash.com/photo-1611262588024-d12430b98920?w=400&q=80',
-      creatorHandle: handle || 'reels_creator',
+      viewsCount,
+      likesCount,
+      thumbnailUrl: thumbnailUrl || 'https://images.unsplash.com/photo-1611262588024-d12430b98920?w=400&q=80',
+      creatorHandle: handle || 'instagram_creator',
       originalUrl: url,
     };
   }

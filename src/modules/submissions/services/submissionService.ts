@@ -4,6 +4,7 @@ import { logger } from '../../../services/logger.js';
 import { validateAndNormalizeUrl } from '../../../services/urlValidator.js';
 import { generateShortId } from '../../../utils/helpers.js';
 import { viewFetcherService } from '../../../services/viewFetcherService.js';
+import { syncEventToSite } from '../../../services/siteSyncService.js';
 
 export const submissionService = {
   async findDuplicate(normalizedUrl: string, campaignId: string) {
@@ -85,6 +86,17 @@ export const submissionService = {
         }
       });
 
+      // Sync event to website
+      syncEventToSite("SUBMISSION_CREATED", {
+        campaignId: data.campaignId,
+        videoUrl: data.originalUrl,
+        instagramUsername: meta.creatorHandle || data.userId,
+        discordUsername: submission.user?.username || data.userId,
+        platform: platform,
+        views: meta.viewsCount,
+        status: "pending",
+      });
+
       return submission;
     });
   },
@@ -111,6 +123,14 @@ export const submissionService = {
         data: {
           approvedSubmissions: { increment: 1 }
         }
+      });
+
+      // Sync event to website
+      syncEventToSite("SUBMISSION_UPDATED", {
+        submissionId: submission.id,
+        campaignId: submission.campaignId,
+        status: "approved",
+        views: submission.viewsCount,
       });
 
       return submission;
@@ -147,6 +167,14 @@ export const submissionService = {
         data: {
           rejectedSubmissions: { increment: 1 }
         }
+      });
+
+      // Sync event to website
+      syncEventToSite("SUBMISSION_UPDATED", {
+        submissionId: submission.id,
+        campaignId: submission.campaignId,
+        status: "rejected",
+        views: submission.viewsCount,
       });
 
       return submission;

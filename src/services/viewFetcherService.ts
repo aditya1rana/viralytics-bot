@@ -163,8 +163,15 @@ export const viewFetcherService = {
 
   async fetchTikTokMetadata(url: string): Promise<SocialMetadata> {
     let handle = this.extractHandleFromUrl(url);
-    let thumbnailUrl: string | null = null;
+    let videoId = "";
+    const match = url.match(/\/video\/(\d+)/) || url.match(/\/v\/(\d+)/);
+    if (match) videoId = match[1];
 
+    let thumbnailUrl: string | null = null;
+    let viewsCount = 0;
+    let likesCount = 0;
+
+    // 1. TikTok oEmbed for Author & Thumbnail
     try {
       const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
       const res = await fetch(oembedUrl);
@@ -178,10 +185,56 @@ export const viewFetcherService = {
       // Keep defaults
     }
 
+    // 2. Fetch TikTok Embed HTML (https://www.tiktok.com/embed/v2/{videoId}) to scrape view & like counts
+    try {
+      const targetUrl = videoId ? `https://www.tiktok.com/embed/v2/${videoId}` : url;
+      const res = await fetch(targetUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      if (res.ok) {
+        const html = await res.text();
+
+        // Parse play count / views
+        const playCountMatch = html.match(/"playCount":\s*(\d+)/) ||
+                               html.match(/"viewsCount":\s*(\d+)/) ||
+                               html.match(/"play_count":\s*(\d+)/) ||
+                               html.match(/(\d[\d,.]*)\s+views/i) ||
+                               html.match(/(\d[\d,.]*)\s+plays/i);
+        if (playCountMatch) {
+          viewsCount = parseInt(playCountMatch[1].replace(/,/g, ""), 10) || 0;
+        }
+
+        // Parse likes
+        const diggCountMatch = html.match(/"diggCount":\s*(\d+)/) ||
+                               html.match(/"likesCount":\s*(\d+)/) ||
+                               html.match(/"like_count":\s*(\d+)/);
+        if (diggCountMatch) {
+          likesCount = parseInt(diggCountMatch[1].replace(/,/g, ""), 10) || 0;
+        }
+
+        // Author fallback
+        if (!handle || handle === "tiktok_creator") {
+          const userMatch = html.match(/"uniqueId":"([^"]+)"/) || html.match(/@([a-zA-Z0-9_.-]+)/);
+          if (userMatch) handle = userMatch[1];
+        }
+
+        // Thumbnail fallback
+        if (!thumbnailUrl) {
+          const thumbMatch = html.match(/"cover":"([^"]+)"/) || html.match(/"originCover":"([^"]+)"/);
+          if (thumbMatch) thumbnailUrl = thumbMatch[1].replace(/\\u0026/g, "&");
+        }
+      }
+    } catch (err) {
+      logger.error(`Error fetching TikTok embed for ${url}:`, err);
+    }
+
     return {
       platform: 'TIKTOK',
-      viewsCount: 0,
-      likesCount: 0,
+      viewsCount,
+      likesCount,
       thumbnailUrl: thumbnailUrl || 'https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80',
       creatorHandle: handle || 'tiktok_creator',
       originalUrl: url,

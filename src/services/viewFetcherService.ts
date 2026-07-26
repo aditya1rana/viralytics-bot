@@ -67,19 +67,95 @@ export const viewFetcherService = {
   },
 
   async fetchYouTubeMetadata(url: string): Promise<SocialMetadata> {
-    const handle = this.extractHandleFromUrl(url);
+    let handle = this.extractHandleFromUrl(url);
     let videoId: string | null = null;
+    let viewsCount = 0;
+    let likesCount = 0;
+    let thumbnailUrl: string | null = null;
 
+    // Extract video ID from shorts URL or regular watch URL
     const shortsMatch = url.match(/shorts\/([a-zA-Z0-9_-]+)/);
     if (shortsMatch) videoId = shortsMatch[1];
+    if (!videoId) {
+      const watchMatch = url.match(/[?&]v=([a-zA-Z0-9_-]+)/) || url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+      if (watchMatch) videoId = watchMatch[1];
+    }
 
-    const thumb = videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
+    // Build a standard watch URL for oEmbed/HTML fetching
+    const watchUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
+
+    // 1. YouTube oEmbed for title, author, thumbnail
+    try {
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`;
+      const res = await fetch(oembedUrl);
+      if (res.ok) {
+        const data: any = await res.json();
+        if (data.author_name) handle = data.author_name;
+        if (data.thumbnail_url) thumbnailUrl = data.thumbnail_url;
+      }
+    } catch {
+      // Keep defaults
+    }
+
+    // 2. Fetch the HTML page to scrape view/like counts and fallback author
+    try {
+      const res = await fetch(watchUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      if (res.ok) {
+        const html = await res.text();
+
+        // Views — multiple patterns YouTube uses in page data
+        const viewPatterns = [
+          /"viewCount":"(\d+)"/,
+          /"views":{"simpleText":"([\d,]+)\s/,
+          /(\d[\d,.]*)\s+views/i,
+          /"short_view_count_text":{"simpleText":"([\d.]+[KMB]?)\s/,
+        ];
+        for (const pattern of viewPatterns) {
+          const m = html.match(pattern);
+          if (m) {
+            let raw = m[1].replace(/,/g, "");
+            // Handle K/M/B suffixes
+            if (/K$/i.test(raw)) { viewsCount = Math.round(parseFloat(raw) * 1000); }
+            else if (/M$/i.test(raw)) { viewsCount = Math.round(parseFloat(raw) * 1_000_000); }
+            else if (/B$/i.test(raw)) { viewsCount = Math.round(parseFloat(raw) * 1_000_000_000); }
+            else { viewsCount = parseInt(raw, 10) || 0; }
+            if (viewsCount > 0) break;
+          }
+        }
+
+        // Likes
+        const likeMatch = html.match(/"label":"([\d,]+) likes"/) ||
+                          html.match(/"likeCount":"?(\d+)"?/) ||
+                          html.match(/"accessibilityText":"([\d,]+) likes"/);
+        if (likeMatch) {
+          likesCount = parseInt(likeMatch[1].replace(/,/g, ""), 10) || 0;
+        }
+
+        // Author fallback
+        if (!handle || handle === 'yt_creator') {
+          const channelMatch = html.match(/"channelName":"([^"]+)"/) || html.match(/"author":"([^"]+)"/);
+          if (channelMatch) handle = channelMatch[1];
+        }
+      }
+    } catch {
+      // Keep defaults
+    }
+
+    // Fallback thumbnail from YouTube CDN
+    if (!thumbnailUrl && videoId) {
+      thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    }
 
     return {
       platform: 'YOUTUBE_SHORTS',
-      viewsCount: 0,
-      likesCount: 0,
-      thumbnailUrl: thumb,
+      viewsCount,
+      likesCount,
+      thumbnailUrl,
       creatorHandle: handle || 'yt_creator',
       originalUrl: url,
     };

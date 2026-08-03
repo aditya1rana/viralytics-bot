@@ -274,8 +274,8 @@ export const viewFetcherService = {
               body: JSON.stringify({ directUrls: [reelUrl], username: [reelUrl], urls: [reelUrl], resultsLimit: 1 })
             });
             if (res.ok) {
-              const items = await res.json();
-              const item = items?.[0];
+              const items: any = await res.json();
+              const item = Array.isArray(items) ? items[0] : null;
               if (item) {
                 handle = item.ownerUsername || item.username || handle;
                 thumbnailUrl = item.displayUrl || item.thumbnailUrl || thumbnailUrl;

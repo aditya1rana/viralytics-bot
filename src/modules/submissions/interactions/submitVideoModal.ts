@@ -65,38 +65,41 @@ const submitVideoModalHandler: ModalHandler = {
         return;
       }
 
-      // Process each link
+      // Process links in parallel chunks of 5 for speed
       const results: { url: string; status: 'success' | 'invalid' | 'duplicate' | 'error'; detail: string }[] = [];
+      const chunkSize = 5;
 
-      for (const link of allLinks) {
-        try {
-          // Validate the URL
-          const validation = validateAndNormalizeUrl(link);
-          if (!validation.valid || !validation.normalizedUrl || !validation.platform) {
-            results.push({ url: link, status: 'invalid', detail: validation.error || 'Invalid URL' });
-            continue;
-          }
+      for (let i = 0; i < allLinks.length; i += chunkSize) {
+        const chunk = allLinks.slice(i, i + chunkSize);
+        const chunkResults = await Promise.all(
+          chunk.map(async (link) => {
+            try {
+              const validation = validateAndNormalizeUrl(link);
+              if (!validation.valid || !validation.normalizedUrl || !validation.platform) {
+                return { url: link, status: 'invalid' as const, detail: validation.error || 'Invalid URL' };
+              }
 
-          // Create the submission
-          const submission = await submissionService.createSubmission({
-            guildId,
-            userId,
-            campaignId: campaign.id,
-            originalUrl: link,
-          });
+              const submission = await submissionService.createSubmission({
+                guildId,
+                userId,
+                campaignId: campaign.id,
+                originalUrl: link,
+              });
 
-          results.push({
-            url: link,
-            status: 'success',
-            detail: `${getPlatformName(submission.platform)} — ID: ${submission.shortId}`,
-          });
-        } catch (err: any) {
-          if (err.message?.includes('Duplicate')) {
-            results.push({ url: link, status: 'duplicate', detail: 'Already submitted' });
-          } else {
-            results.push({ url: link, status: 'error', detail: err.message || 'Unknown error' });
-          }
-        }
+              return {
+                url: link,
+                status: 'success' as const,
+                detail: `${getPlatformName(submission.platform)} — ID: ${submission.shortId}`,
+              };
+            } catch (err: any) {
+              if (err.message?.includes('Duplicate')) {
+                return { url: link, status: 'duplicate' as const, detail: 'Already submitted' };
+              }
+              return { url: link, status: 'error' as const, detail: err.message || 'Unknown error' };
+            }
+          })
+        );
+        results.push(...chunkResults);
       }
 
       // Count results
@@ -105,6 +108,9 @@ const submitVideoModalHandler: ModalHandler = {
       const dupeCount = results.filter(r => r.status === 'duplicate').length;
       const errorCount = results.filter(r => r.status === 'error').length;
 
+      // Check if raw input was truncated by Discord's 4,000 character modal limit
+      const wasTruncated = rawInput.length >= 3800;
+
       // Build user-facing response
       let replyDesc = `**Campaign:** ${campaign.name}\n\n`;
       replyDesc += `✅ **${successCount}** submitted successfully\n`;
@@ -112,10 +118,14 @@ const submitVideoModalHandler: ModalHandler = {
       if (invalidCount > 0) replyDesc += `❌ **${invalidCount}** invalid link(s)\n`;
       if (errorCount > 0) replyDesc += `🔴 **${errorCount}** error(s)\n`;
 
+      if (wasTruncated) {
+        replyDesc += `\nℹ️ **Discord Limit Notice**: Discord text boxes cap input at **4,000 characters** (~23-25 long URLs per paste). Your text was automatically capped by Discord. Please click **Submit Video** again to submit your remaining links!`;
+      }
+
       // Show failed links if any
       const failedLinks = results.filter(r => r.status !== 'success');
       if (failedLinks.length > 0 && failedLinks.length <= 20) {
-        replyDesc += `\n**Issues:**\n`;
+        replyDesc += `\n\n**Issues:**\n`;
         for (const f of failedLinks) {
           const shortUrl = f.url.length > 60 ? f.url.substring(0, 60) + '...' : f.url;
           replyDesc += `• \`${shortUrl}\` — ${f.detail}\n`;

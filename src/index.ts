@@ -63,9 +63,13 @@ async function main() {
   });
 
   // Login
-  await client.login(config.DISCORD_TOKEN);
-
-  // ── Graceful Shutdown ──
+  logger.info('🔑 Attempting to login to Discord...');
+  try {
+    await client.login(config.DISCORD_TOKEN.trim());
+    logger.info('🔓 client.login() Promise resolved successfully!');
+  } catch (error) {
+    logger.error('❌ client.login() threw an error:', error);
+  }
   const gracefulShutdown = async (signal: string) => {
     logger.warn(`⚠️ Received ${signal}. Starting graceful shutdown...`);
 

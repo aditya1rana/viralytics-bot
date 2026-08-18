@@ -66,6 +66,9 @@ async function main() {
     logger.info(`🌐 Dashboard & API server listening on port ${port}`);
   });
 
+  // Add debug listener
+  client.on('debug', (info) => logger.debug(`[DJS DEBUG] ${info}`));
+
   // Login
   logger.info('🔑 Attempting to login to Discord...');
   try {

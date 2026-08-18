@@ -381,9 +381,33 @@ const command: Command = {
                 await createIfMissing('Budget Used: 0%', ChannelType.GuildVoice, false, false, true);
 
                 // 4. Post Announcement
+                let embedDesc = `All you gotta do is **register for the campaign with the button below & follow the campaign details** to start making money.\n\n`;
+                
+                if (campaign.description) {
+                    embedDesc += `**📝 Description**\n${campaign.description}\n\n`;
+                }
+
+                embedDesc += `**❗ Campaign Details**\n• **Platforms**: ${campaign.platforms.length > 0 ? campaign.platforms.join(', ') : 'Any'}\n`;
+                
+                if (campaign.cpmRate && Number(campaign.cpmRate) > 0) {
+                    embedDesc += `• **CPM**: $${campaign.cpmRate}\n`;
+                }
+                
+                embedDesc += `\n**💸 Payment Details**\n**Payout**: $${campaign.payPerApproved || 0} per approved clip\n\n`;
+
+                if (campaign.guidelines) {
+                    embedDesc += `**📋 Guidelines & Directions**\n${campaign.guidelines.slice(0, 1500)}\n\n`;
+                }
+
+                if (campaign.rules) {
+                    embedDesc += `**⚠️ Rules**\n${campaign.rules.slice(0, 500)}\n\n`;
+                }
+
+                embedDesc += `➡️ **Join The Campaign**\nClick the button below to start clipping!`;
+
                 const announceEmbed = new EmbedBuilder()
                     .setTitle(`Earn Money by Posting Clips for ${campaign.name}`)
-                    .setDescription(`All you gotta do is **register for the campaign with the button below & follow the campaign details** to start making money.\n\n**❗ Campaign Details**\n• **Platforms**: ${campaign.platforms.length > 0 ? campaign.platforms.join(', ') : 'Any'}\n\n**💸 Payment Details**\n**Payout**: $${campaign.payPerApproved || 0} per approved clip\n\n➡️ **Join The Campaign**\nClick the button below to start clipping!`)
+                    .setDescription(embedDesc.slice(0, 4096))
                     .setColor(COLORS.SUCCESS);
 
                 const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(

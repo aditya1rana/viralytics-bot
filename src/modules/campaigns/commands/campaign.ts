@@ -424,7 +424,37 @@ const command: Command = {
                     await (interaction.channel as any).send({ embeds: [announceEmbed], components: [buttons] });
                 }
                 
-                await interaction.editReply({ content: '✅ Campaign setup and announced successfully!' });
+                await interaction.editReply({ content: '✅ Campaign setup and announced successfully! Sending DMs to all members in the background...' });
+
+                // 5. Background Mass DM
+                // Note: We don't await this so it runs independently in the background.
+                (async () => {
+                    try {
+                        logger.info(`Starting Mass DM broadcast for campaign ${campaign.name}...`);
+                        const members = await guild.members.fetch();
+                        let successCount = 0;
+                        let failCount = 0;
+
+                        for (const [, member] of members) {
+                            if (member.user.bot) continue; // Skip bots
+
+                            try {
+                                await member.send({ embeds: [announceEmbed], components: [buttons] });
+                                successCount++;
+                            } catch (err) {
+                                // Usually means DMs are disabled or blocked
+                                failCount++;
+                            }
+                            // Crucial delay to prevent Discord anti-spam ban
+                            await new Promise(resolve => setTimeout(resolve, 2500));
+                        }
+                        
+                        logger.info(`Mass DM broadcast for ${campaign.name} completed. Sent: ${successCount}, Failed: ${failCount}.`);
+                    } catch (error) {
+                        logger.error(`Mass DM broadcast error for ${campaign.name}:`, error);
+                    }
+                })();
+                
             }
         } catch (error: any) {
             logger.error(`Campaign Command Error: ${error.message}`, error);

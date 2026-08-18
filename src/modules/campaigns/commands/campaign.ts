@@ -328,17 +328,23 @@ const command: Command = {
                     const existing = existingChannels.find(c => c.name === name);
                     if (existing) return existing;
 
-                    const overwrites: any = [
-                        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-                        { id: role!.id, allow: [PermissionFlagsBits.ViewChannel] }
-                    ];
+                    const roleOverwrite: any = { 
+                        id: role!.id, 
+                        allow: [PermissionFlagsBits.ViewChannel],
+                        deny: []
+                    };
 
                     if (!isChat && type !== ChannelType.GuildVoice) {
-                        overwrites.push({ id: role!.id, deny: [PermissionFlagsBits.SendMessages] });
+                        roleOverwrite.deny.push(PermissionFlagsBits.SendMessages);
                     }
                     if (type === ChannelType.GuildVoice) {
-                        overwrites.push({ id: role!.id, deny: [PermissionFlagsBits.Connect] });
+                        roleOverwrite.deny.push(PermissionFlagsBits.Connect);
                     }
+
+                    const overwrites: any = [
+                        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                        roleOverwrite
+                    ];
 
                     const channel = await guild.channels.create({
                         name,

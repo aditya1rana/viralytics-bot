@@ -65,15 +65,15 @@ export async function deployCommands(commandsCollection?: Collection<string, Com
   const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
 
   try {
-    logger.info(`🔄 Deploying ${commandData.length} global application commands...`);
+    logger.info(`🔄 Clearing global application commands to prevent duplicates...`);
 
-    // Register globally for all servers
+    // Register an empty array globally to remove duplicate global commands
     await rest.put(
       Routes.applicationCommands(config.DISCORD_CLIENT_ID),
-      { body: commandData },
+      { body: [] },
     );
 
-    logger.info(`✅ Successfully deployed ${commandData.length} commands globally!`);
+    logger.info(`✅ Successfully cleared global commands!`);
   } catch (err) {
     logger.error('❌ Failed to deploy commands globally:', err);
   }

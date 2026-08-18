@@ -393,7 +393,11 @@ const command: Command = {
                     embedDesc += `• **CPM**: $${campaign.cpmRate}\n`;
                 }
                 
-                embedDesc += `\n**💸 Payment Details**\n**Payout**: $${campaign.payPerApproved || 0} per approved clip\n\n`;
+                if (campaign.payPerApproved && Number(campaign.payPerApproved) > 0) {
+                    embedDesc += `\n**💸 Payment Details**\n**Payout**: $${campaign.payPerApproved} per approved clip\n\n`;
+                } else {
+                    embedDesc += `\n`;
+                }
 
                 if (campaign.guidelines) {
                     embedDesc += `**📋 Guidelines & Directions**\n${campaign.guidelines.slice(0, 1500)}\n\n`;

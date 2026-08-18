@@ -58,7 +58,7 @@ async function main() {
   const { createDashboardApp } = await import('./dashboard/server.js');
   const app = createDashboardApp(client);
   
-  const server = app.listen(port, () => {
+  const server = app.listen(port as number, '0.0.0.0', () => {
     logger.info(`🌐 Dashboard & API server listening on port ${port}`);
   });
 

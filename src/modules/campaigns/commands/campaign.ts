@@ -90,6 +90,7 @@ const command: Command = {
 
         try {
             if (subcommand === 'create') {
+                await interaction.deferReply();
                 const name = interaction.options.getString('name', true);
                 const description = interaction.options.getString('description') || undefined;
                 const platformsStr = interaction.options.getString('platforms');
@@ -104,7 +105,7 @@ const command: Command = {
 
                 const exists = await CampaignService.getCampaignByName(guildId, name);
                 if (exists) {
-                    await interaction.reply({ content: `A campaign with the name **${name}** already exists.`, ephemeral: true });
+                    await interaction.editReply({ content: `A campaign with the name **${name}** already exists.` });
                     return;
                 }
 
@@ -139,16 +140,17 @@ const command: Command = {
                         { name: 'Platforms', value: platforms.length > 0 ? platforms.join(', ') : 'Any', inline: true }
                     ]);
 
-                await interaction.reply({ embeds: [embed] });
+                await interaction.editReply({ embeds: [embed] });
             }
             else if (subcommand === 'edit') {
+                await interaction.deferReply();
                 const id = interaction.options.getString('campaign', true);
                 const field = interaction.options.getString('field', true);
                 const value = interaction.options.getString('value', true);
 
                 const campaign = await CampaignService.getCampaignById(id);
                 if (!campaign || campaign.guildId !== guildId) {
-                    await interaction.reply({ content: 'Campaign not found.', ephemeral: true });
+                    await interaction.editReply({ content: 'Campaign not found.' });
                     return;
                 }
 
@@ -160,14 +162,14 @@ const command: Command = {
                 } else if (field === 'status') {
                     const validStatuses = Object.values(CampaignStatus);
                     if (!validStatuses.includes(value.toUpperCase() as CampaignStatus)) {
-                        await interaction.reply({ content: `Invalid status. Valid options: ${validStatuses.join(', ')}`, ephemeral: true });
+                        await interaction.editReply({ content: `Invalid status. Valid options: ${validStatuses.join(', ')}` });
                         return;
                     }
                     updateData.status = value.toUpperCase() as CampaignStatus;
                 } else if (field === 'payPerApproved') {
                     const pay = parseFloat(value);
                     if (isNaN(pay)) {
-                        await interaction.reply({ content: 'Invalid number for pay per approved.', ephemeral: true });
+                        await interaction.editReply({ content: 'Invalid number for pay per approved.' });
                         return;
                     }
                     updateData.payPerApproved = pay;
@@ -186,13 +188,14 @@ const command: Command = {
                 const embed = embedBuilder.success(`Campaign **${campaign.name}** updated successfully!`)
                     .setDescription(`Changed **${field}** to \`${value}\``);
                 
-                await interaction.reply({ embeds: [embed] });
+                await interaction.editReply({ embeds: [embed] });
             }
             else if (subcommand === 'archive') {
+                await interaction.deferReply();
                 const id = interaction.options.getString('campaign', true);
                 const campaign = await CampaignService.getCampaignById(id);
                 if (!campaign || campaign.guildId !== guildId) {
-                    await interaction.reply({ content: 'Campaign not found.', ephemeral: true });
+                    await interaction.editReply({ content: 'Campaign not found.' });
                     return;
                 }
 
@@ -207,13 +210,14 @@ const command: Command = {
                 });
 
                 const embed = embedBuilder.success(`Campaign **${campaign.name}** archived.`);
-                await interaction.reply({ embeds: [embed] });
+                await interaction.editReply({ embeds: [embed] });
             }
             else if (subcommand === 'close') {
+                await interaction.deferReply();
                 const id = interaction.options.getString('campaign', true);
                 const campaign = await CampaignService.getCampaignById(id);
                 if (!campaign || campaign.guildId !== guildId) {
-                    await interaction.reply({ content: 'Campaign not found.', ephemeral: true });
+                    await interaction.editReply({ content: 'Campaign not found.' });
                     return;
                 }
 
@@ -228,13 +232,14 @@ const command: Command = {
                 });
 
                 const embed = embedBuilder.success(`Campaign **${campaign.name}** closed.`);
-                await interaction.reply({ embeds: [embed] });
+                await interaction.editReply({ embeds: [embed] });
             }
             else if (subcommand === 'list') {
+                await interaction.deferReply();
                 const campaigns = await CampaignService.listCampaigns(guildId);
                 
                 if (campaigns.length === 0) {
-                    await interaction.reply({ content: 'No campaigns found in this server.', ephemeral: true });
+                    await interaction.editReply({ content: 'No campaigns found in this server.' });
                     return;
                 }
 
@@ -243,14 +248,15 @@ const command: Command = {
                     description: campaigns.map(c => `**${c.name}** - \`${c.status}\``).join('\n')
                 });
                 
-                await interaction.reply({ embeds: [embed] });
+                await interaction.editReply({ embeds: [embed] });
             }
             else if (subcommand === 'info') {
+                await interaction.deferReply();
                 const id = interaction.options.getString('campaign', true);
                 const campaign = await CampaignService.getCampaignById(id);
                 
                 if (!campaign || campaign.guildId !== guildId) {
-                    await interaction.reply({ content: 'Campaign not found.', ephemeral: true });
+                    await interaction.editReply({ content: 'Campaign not found.' });
                     return;
                 }
 
@@ -276,7 +282,7 @@ const command: Command = {
                     ])
                     .setFooter({ text: `ID: ${campaign.id}` });
                 
-                await interaction.reply({ embeds: [embed] });
+                await interaction.editReply({ embeds: [embed] });
             }
             else if (subcommand === 'announce') {
                 await interaction.deferReply({ ephemeral: true });

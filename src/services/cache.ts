@@ -16,8 +16,12 @@ export class CacheManager {
 
   async get<T>(key: string): Promise<T | null> {
     try {
-      const data = await getRedis().get(this.key(key));
-      return data ? JSON.parse(data) as T : null;
+      // Use Promise.race to prevent Serverless Redis cold-starts from blocking Discord interactions > 3s
+      const data = await Promise.race([
+        getRedis().get(this.key(key)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 500))
+      ]);
+      return data ? JSON.parse(data as string) as T : null;
     } catch (err) {
       logger.debug(`Cache GET miss/error for ${key}:`, err);
       return null;

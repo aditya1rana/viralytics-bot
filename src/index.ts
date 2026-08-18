@@ -8,6 +8,10 @@ import { connectRedis, disconnectRedis } from './services/redis.js';
 import { logger } from './services/logger.js';
 import { Events } from 'discord.js';
 import http from 'node:http';
+import dns from 'node:dns';
+
+// Fix for Render / IPv6 DNS hanging issues when connecting to Discord Gateway
+dns.setDefaultResultOrder('ipv4first');
 
 async function main() {
   logger.info('🚀 Starting Viralytics Bot...');

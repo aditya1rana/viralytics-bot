@@ -25,30 +25,28 @@ export async function isGuildSubscribed(guildId: string): Promise<boolean> {
       return Boolean(cached);
     }
 
-    const guild = await prisma.guild.findUnique({
+    // CACHE MISS! The DB might take >3s on cold boot, which would crash the Discord interaction.
+    // Instead of waiting, we optimistically allow this interaction immediately,
+    // and fetch the subscription status in the background.
+    prisma.guild.findUnique({
       where: { id: guildId },
       select: { isSubscribed: true, subscriptionExpiresAt: true }
+    }).then(async guild => {
+      if (!guild || !guild.isSubscribed) {
+        await cache.set(cacheKey, false, 300);
+      } else if (guild.subscriptionExpiresAt && new Date() > new Date(guild.subscriptionExpiresAt)) {
+        logger.warn(`⏳ Guild ${guildId} subscription expired. Deactivating...`);
+        await prisma.guild.update({ where: { id: guildId }, data: { isSubscribed: false } });
+        await removeGuildCommands(guildId).catch(() => null);
+        await cache.set(cacheKey, false, 300);
+      } else {
+        await cache.set(cacheKey, true, 300);
+      }
+    }).catch(error => {
+      logger.error(`Error checking subscription status for guild ${guildId} in background:`, error);
     });
 
-    if (!guild || !guild.isSubscribed) {
-      await cache.set(cacheKey, false, 300);
-      return false;
-    }
-
-    // Check expiration date if set
-    if (guild.subscriptionExpiresAt && new Date() > new Date(guild.subscriptionExpiresAt)) {
-      logger.warn(`⏳ Guild ${guildId} subscription expired on ${guild.subscriptionExpiresAt.toISOString()}. Deactivating...`);
-      await prisma.guild.update({
-        where: { id: guildId },
-        data: { isSubscribed: false }
-      });
-      await removeGuildCommands(guildId).catch(() => null);
-      await cache.set(cacheKey, false, 300);
-      return false;
-    }
-
-    await cache.set(cacheKey, true, 300);
-    return true;
+    return true; // Optimistic allow!
   } catch (error) {
     logger.error(`Error checking subscription status for guild ${guildId}:`, error);
     return false;

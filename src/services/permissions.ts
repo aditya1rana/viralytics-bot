@@ -46,15 +46,28 @@ export async function checkPermissions(
  * Check if a user is an admin based on guild config roles.
  */
 export async function isUserAdmin(guildId: string, userId: string): Promise<boolean> {
-  const config = await cache.getOrSet(`guild:${guildId}:config`, async () => {
-    return prisma.guildConfig.findUnique({ where: { guildId } });
-  }, 600);
+  const cacheKey = `guild:${guildId}:config`;
+  
+  // Try to get config from cache
+  const cached = await cache.get<any>(cacheKey);
+  
+  if (cached) {
+    // We have cache, we could check adminRoleId if we had the member, 
+    // but the interaction handler already checks the member roles later.
+    // For now we just return false and let the main handler check roles.
+    return false;
+  }
 
-  if (!config) return false;
+  // Cache miss! The DB might take >3s on cold boot, crashing the interaction.
+  // Trigger DB lookup in background to populate cache for next time,
+  // but return optimistically NOW.
+  prisma.guildConfig.findUnique({ where: { guildId } }).then(config => {
+    if (config) {
+      cache.set(cacheKey, config, 600).catch(() => null);
+    }
+  }).catch(() => null);
 
-  // The guild owner is always admin — this needs guild member data
-  // For now we rely on adminRoleId from config
-  return false; // Will be checked by the interaction handler with member roles
+  return false;
 }
 
 /**

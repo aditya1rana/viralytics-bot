@@ -371,9 +371,12 @@ model Campaign {
   minViewsPerCreator  Int? @default(0)
   maxViewsPerCreator  Int? @default(0)
 
-  roleId    String?
-  channelId String?
-  logChannelId String?
+  roleId               String?
+  channelId            String?
+  logChannelId         String?
+  categoryId           String?
+  submitChannelId      String?
+  budgetVoiceChannelId String?
 
   startsAt   DateTime?
   endsAt     DateTime?

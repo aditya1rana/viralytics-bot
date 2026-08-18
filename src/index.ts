@@ -41,6 +41,10 @@ async function main() {
 
     // Deploy slash commands globally to all servers
     await deployCommands(client.commands);
+    
+    // Start background schedulers
+    const { startSchedulers } = await import('./services/scheduler.js');
+    startSchedulers(client);
   });
 
   // Guild join event

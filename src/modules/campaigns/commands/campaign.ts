@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, AutocompleteInteraction, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, AutocompleteInteraction, PermissionFlagsBits, EmbedBuilder, ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { Command } from '../../../types/index.js';
 import { CampaignService } from '../services/campaignService.js';
 import { embedBuilder } from '../../../services/embedBuilder.js';
@@ -6,6 +6,7 @@ import logger from '../../../services/logger.js';
 import { auditLogger } from '../../../services/auditLogger.js';
 import { Platform, CampaignStatus, AuditAction } from '@prisma/client';
 import COLORS from '../../../utils/colors.js';
+import { prisma } from '../../../services/database.js';
 
 const parsePlatforms = (input: string): Platform[] => {
     const validPlatforms = Object.values(Platform);
@@ -43,6 +44,11 @@ const command: Command = {
                 { name: 'Pay Per Approved', value: 'payPerApproved' }
             ))
             .addStringOption(opt => opt.setName('value').setDescription('New value').setRequired(true))
+        )
+        .addSubcommand(sub => sub
+            .setName('announce')
+            .setDescription('Setup Discord roles/channels and announce the campaign')
+            .addStringOption(opt => opt.setName('campaign').setDescription('Select campaign').setRequired(true).setAutocomplete(true))
         )
         .addSubcommand(sub => sub
             .setName('archive')
@@ -271,6 +277,114 @@ const command: Command = {
                     .setFooter({ text: `ID: ${campaign.id}` });
                 
                 await interaction.reply({ embeds: [embed] });
+            }
+            else if (subcommand === 'announce') {
+                await interaction.deferReply({ ephemeral: true });
+                const id = interaction.options.getString('campaign', true);
+                const campaign = await prisma.campaign.findUnique({ where: { id } });
+                
+                if (!campaign || campaign.guildId !== guildId) {
+                    await interaction.editReply({ content: 'Campaign not found.' });
+                    return;
+                }
+
+                const guild = interaction.guild!;
+                
+                // 1. Check or Create Role
+                let role = campaign.roleId ? guild.roles.cache.get(campaign.roleId) : null;
+                if (!role) {
+                    role = await guild.roles.create({
+                        name: campaign.name,
+                        color: COLORS.PRIMARY,
+                        reason: 'Auto-created for campaign'
+                    });
+                    await prisma.campaign.update({ where: { id: campaign.id }, data: { roleId: role.id } });
+                }
+
+                // 2. Check or Create Category
+                let category: any = campaign.categoryId ? guild.channels.cache.get(campaign.categoryId) : null;
+                if (!category) {
+                    category = await guild.channels.create({
+                        name: campaign.name,
+                        type: ChannelType.GuildCategory,
+                        permissionOverwrites: [
+                            { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                            { id: role.id, allow: [PermissionFlagsBits.ViewChannel] }
+                        ]
+                    });
+                    await prisma.campaign.update({ where: { id: campaign.id }, data: { categoryId: category.id } });
+                }
+
+                // 3. Check or Create Channels
+                const existingChannels = guild.channels.cache.filter(c => c.parentId === category.id);
+                
+                const createIfMissing = async (name: string, type: any, isSubmit: boolean = false, isChat: boolean = false, isVoice: boolean = false) => {
+                    const existing = existingChannels.find(c => c.name === name);
+                    if (existing) return existing;
+
+                    const overwrites: any = [
+                        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                        { id: role!.id, allow: [PermissionFlagsBits.ViewChannel] }
+                    ];
+
+                    if (!isChat && type !== ChannelType.GuildVoice) {
+                        overwrites.push({ id: role!.id, deny: [PermissionFlagsBits.SendMessages] });
+                    }
+                    if (type === ChannelType.GuildVoice) {
+                        overwrites.push({ id: role!.id, deny: [PermissionFlagsBits.Connect] });
+                    }
+
+                    const channel = await guild.channels.create({
+                        name,
+                        type,
+                        parent: category.id,
+                        permissionOverwrites: overwrites
+                    });
+
+                    if (isSubmit && channel.isTextBased()) {
+                        await prisma.campaign.update({ where: { id: campaign.id }, data: { submitChannelId: channel.id } });
+                        
+                        const submitEmbed = new EmbedBuilder()
+                            .setTitle('📥 Submit Your Clips')
+                            .setDescription(`Click the button below to submit a video for **${campaign.name}**.`)
+                            .setColor(COLORS.SUCCESS);
+                        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                            new ButtonBuilder().setCustomId(`submit_specific_${campaign.id}`).setLabel('Submit Clip').setStyle(ButtonStyle.Success).setEmoji('📲')
+                        );
+                        await (channel as any).send({ embeds: [submitEmbed], components: [row] });
+                    }
+                    
+                    if (isVoice) {
+                        await prisma.campaign.update({ where: { id: campaign.id }, data: { budgetVoiceChannelId: channel.id } });
+                    }
+                    return channel;
+                };
+
+                await createIfMissing('campaign-details', ChannelType.GuildText);
+                await createIfMissing('leaderboard', ChannelType.GuildText);
+                await createIfMissing('updates', ChannelType.GuildText);
+                await createIfMissing('clip-bank', ChannelType.GuildText);
+                await createIfMissing('chat', ChannelType.GuildText, false, true);
+                await createIfMissing('submit-clips', ChannelType.GuildText, true);
+                await createIfMissing('Budget Used: 0%', ChannelType.GuildVoice, false, false, true);
+
+                // 4. Post Announcement
+                const announceEmbed = new EmbedBuilder()
+                    .setTitle(`Earn Money by Posting Clips for ${campaign.name}`)
+                    .setDescription(`All you gotta do is **register for the campaign with the button below & follow the campaign details** to start making money.\n\n**❗ Campaign Details**\n• **Platforms**: ${campaign.platforms.length > 0 ? campaign.platforms.join(', ') : 'Any'}\n\n**💸 Payment Details**\n**Payout**: $${campaign.payPerApproved || 0} per approved clip\n\n➡️ **Join The Campaign**\nClick the button below to start clipping!`)
+                    .setColor(COLORS.SUCCESS);
+
+                const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                    new ButtonBuilder().setCustomId(`join_campaign_${campaign.id}`).setLabel('Join Campaign').setStyle(ButtonStyle.Success).setEmoji('💸'),
+                    new ButtonBuilder().setCustomId(`status_campaign_${campaign.id}`).setLabel('Campaign Status').setStyle(ButtonStyle.Primary).setEmoji('📉'),
+                    new ButtonBuilder().setCustomId(`leave_campaign_${campaign.id}`).setLabel('Leave Campaign').setStyle(ButtonStyle.Danger).setEmoji('⚠️')
+                );
+
+                if (interaction.channel?.isTextBased()) {
+                    await (interaction.channel as any).send({ embeds: [announceEmbed], components: [buttons] });
+                }
+                
+                await interaction.editReply({ content: '✅ Campaign setup and announced successfully!' });
             }
         } catch (error: any) {
             logger.error(`Campaign Command Error: ${error.message}`, error);

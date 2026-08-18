@@ -1,4 +1,4 @@
-import { ButtonInteraction, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { ButtonInteraction, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder } from 'discord.js';
 import { ButtonHandler } from '../../../types/index.js';
 import { verificationService } from '../services/verificationService.js';
 import prisma from '../../../services/database.js';
@@ -17,6 +17,10 @@ const verifyButtonHandler: ButtonHandler = {
         return;
       }
 
+      // We MUST defer reply immediately to prevent the 3-second timeout, 
+      // especially when the database is cold or waking up.
+      await interaction.deferReply({ ephemeral: true });
+
       const [config, isVerified] = await Promise.all([
         getGuildConfig(guild.id),
         verificationService.isVerified(guild.id, interaction.user.id)
@@ -27,7 +31,6 @@ const verifyButtonHandler: ButtonHandler = {
         
         // If they are verified in database but do not have the Discord role, try to assign it
         if (member && config?.verifiedRoleId && !member.roles.cache.has(config.verifiedRoleId)) {
-          await interaction.deferReply({ ephemeral: true });
           const role = guild.roles.cache.get(config.verifiedRoleId);
           
           if (role) {
@@ -46,36 +49,27 @@ const verifyButtonHandler: ButtonHandler = {
           }
         }
         
-        await interaction.reply({ content: 'You are already verified!', ephemeral: true });
+        await interaction.editReply({ content: 'You are already verified!' });
         return;
       }
 
       const captchaEnabled = config?.captchaEnabled ?? false;
 
       if (captchaEnabled) {
-        const num1 = Math.floor(Math.random() * 10) + 1;
-        const num2 = Math.floor(Math.random() * 10) + 1;
-        const answer = num1 + num2;
-
-        const modal = new ModalBuilder()
-          .setCustomId(`captcha_modal:answer:${answer}`)
-          .setTitle('Security Check');
-
-        const input = new TextInputBuilder()
-          .setCustomId('captcha_input')
-          .setLabel(`What is ${num1} + ${num2}?`)
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMinLength(1)
-          .setMaxLength(3);
-
-        const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
-        modal.addComponents(row);
-
-        await interaction.showModal(modal);
+        // Since we deferred, we cannot show a modal directly.
+        // We must send a button that they click to open the modal.
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setCustomId('verify_captcha_prompt')
+                .setLabel('Complete CAPTCHA')
+                .setStyle(1) // Primary
+        );
+        await interaction.editReply({ 
+            content: '🔒 **Security Check Required**\n\nPlease click the button below to complete a quick CAPTCHA and verify your account.', 
+            components: [row] 
+        });
       } else {
-        // Defer reply immediately to avoid 3-second Discord timeout during DB updates and Discord role additions
-        await interaction.deferReply({ ephemeral: true });
+        // No captcha, verify directly
 
         const member = await guild.members.fetch(interaction.user.id);
         const success = await verificationService.verifyMember(guild, member);

@@ -8,6 +8,7 @@ const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1, 'DISCORD_TOKEN is required'),
   DISCORD_CLIENT_ID: z.string().min(1, 'DISCORD_CLIENT_ID is required'),
   DISCORD_GUILD_ID: z.string().min(1, 'DISCORD_GUILD_ID is required'),
+  DISCORD_PROXY_URL: z.string().url().optional(),
 
   // Database
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),

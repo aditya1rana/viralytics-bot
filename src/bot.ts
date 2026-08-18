@@ -43,6 +43,9 @@ export function createBot(): Client & { commands: Collection<string, Command> } 
         lifetime: 1800,
       },
     },
+    rest: config.DISCORD_PROXY_URL ? {
+      api: config.DISCORD_PROXY_URL,
+    } : undefined,
   }) as Client & { commands: Collection<string, Command> };
 
   client.commands = new Collection();

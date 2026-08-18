@@ -131,8 +131,10 @@ export async function syncGuildsWithDiscord(client?: any): Promise<void> {
 
       // Deploy or remove commands based on current subscription state
       if (dbGuild.isSubscribed || g.id === config.DISCORD_GUILD_ID) {
+        await cache.set(`guild:${g.id}:subscribed`, true, 300);
         await deployGuildCommands(g.id, client.commands).catch(() => null);
       } else {
+        await cache.set(`guild:${g.id}:subscribed`, false, 300);
         await removeGuildCommands(g.id).catch(() => null);
       }
     }

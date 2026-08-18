@@ -17,20 +17,12 @@ const submitSpecificButtonHandler: ButtonHandler = {
       if (!match) return;
       const campaignId = match[1];
 
-      // Verify campaign is active
-      const campaign = await prisma.campaign.findUnique({
-        where: { id: campaignId }
-      });
-
-      if (!campaign || campaign.status !== 'ACTIVE') {
-        await interaction.reply({ content: '❌ This campaign is no longer active.', ephemeral: true });
-        return;
-      }
-
-      const modalTitle = `Submit Video: ${campaign.name}`.slice(0, 45);
+      // Instantly show the modal without hitting the database to avoid Discord 3-second timeout!
+      // The modal handler will securely verify if the campaign is still active when they actually submit.
+      const modalTitle = `Submit Video to Campaign`;
 
       const modal = new ModalBuilder()
-        .setCustomId(`submit_video_modal:${campaign.id}`)
+        .setCustomId(`submit_video_modal:${campaignId}`)
         .setTitle(modalTitle);
 
       const linksInput = new TextInputBuilder()

@@ -15,6 +15,9 @@ const submitVideoButton: ButtonHandler = {
     try {
       if (!interaction.guild) return;
 
+      // Defer reply to prevent Discord 3-second timeout!
+      await interaction.deferReply({ ephemeral: true });
+
       // Query ONLY active campaigns for this server
       const activeCampaigns = await prisma.campaign.findMany({
         where: {
@@ -31,7 +34,7 @@ const submitVideoButton: ButtonHandler = {
           .setDescription('There are currently no **ACTIVE** campaigns accepting video submissions in this server. Please check back later or contact a staff member.')
           .setColor(COLORS.ERROR);
 
-        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+        await interaction.editReply({ embeds: [errorEmbed] });
         return;
       }
 
@@ -58,14 +61,10 @@ const submitVideoButton: ButtonHandler = {
 
       const embed = new EmbedBuilder()
         .setTitle('🎥 Select Active Campaign')
-        .setDescription('Please select which **ACTIVE** campaign you are submitting video link(s) for from the dropdown menu below:')
+        .setDescription('Please select the campaign you are submitting clips for from the dropdown menu below.')
         .setColor(COLORS.PRIMARY);
 
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ embeds: [embed], components: [row], ephemeral: true }).catch(() => null);
-      } else {
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true }).catch(() => null);
-      }
+      await interaction.editReply({ embeds: [embed], components: [row] });
     } catch (error) {
       logger.error('Error in submitVideoButton handler:', error);
       if (!interaction.replied && !interaction.deferred) {

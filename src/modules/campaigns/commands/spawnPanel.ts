@@ -68,7 +68,7 @@ const spawnPanelCommand: Command = {
         new ButtonBuilder().setCustomId(`check_submissions_${campaign.id}`).setLabel('Check Submissions').setStyle(ButtonStyle.Primary).setEmoji('🔍')
       );
 
-      await interaction.channel.send({ embeds: [submitEmbed], components: [row] });
+      await (interaction.channel as any).send({ embeds: [submitEmbed], components: [row] });
       await interaction.editReply({ content: 'Panel spawned successfully!' });
 
     } catch (error) {

@@ -16,7 +16,7 @@ export interface PaginationOptions {
 }
 
 export async function paginate(
-  interaction: ChatInputCommandInteraction,
+  interaction: ChatInputCommandInteraction | import('discord.js').ButtonInteraction,
   pages: EmbedBuilder[],
   options: PaginationOptions = {},
 ): Promise<void> {

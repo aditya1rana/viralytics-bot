@@ -41,7 +41,7 @@ const mySubmissionsCommand: Command = {
         const pageItems = submissions.items.slice(i * pageSize, (i + 1) * pageSize);
         
         const description = pageItems.map(sub => 
-          `**ID:** \`${sub.shortId}\` | **Campaign:** ${sub.campaign.name}\n` +
+          `**URL:** [Link](${sub.originalUrl}) | **Campaign:** ${sub.campaign.name}\n` +
           `**Platform:** ${sub.platform} | **Status:** ${sub.status}\n` +
           `**Date:** <t:${Math.floor(sub.createdAt.getTime() / 1000)}:R>`
         ).join('\n\n');

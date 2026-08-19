@@ -361,7 +361,8 @@ const command: Command = {
                             .setDescription(`Click the button below to submit a video for **${campaign.name}**.`)
                             .setColor(COLORS.SUCCESS);
                         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                            new ButtonBuilder().setCustomId(`submit_specific_${campaign.id}`).setLabel('Submit Clip').setStyle(ButtonStyle.Success).setEmoji('📲')
+                            new ButtonBuilder().setCustomId(`submit_specific_${campaign.id}`).setLabel('Submit Clip').setStyle(ButtonStyle.Success).setEmoji('📲'),
+                            new ButtonBuilder().setCustomId(`check_submissions_${campaign.id}`).setLabel('Check Submissions').setStyle(ButtonStyle.Primary).setEmoji('🔍')
                         );
                         await (channel as any).send({ embeds: [submitEmbed], components: [row] });
                     }

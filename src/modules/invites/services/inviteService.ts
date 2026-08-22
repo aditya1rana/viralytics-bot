@@ -171,12 +171,18 @@ export class InviteService {
         where: { guildId, inviteeId: userId }
       });
 
+      // Mark the member as left
+      await prisma.member.updateMany({
+        where: { guildId, userId },
+        data: { hasLeft: true, leftAt: new Date() }
+      });
+
       if (!invite) return null;
 
       // Mark invite as LEFT
       await prisma.invite.update({
         where: { id: invite.id },
-        data: { status: InviteStatus.LEFT }
+        data: { status: InviteStatus.LEFT, leftAt: new Date() }
       });
 
       // Update inviter's stats

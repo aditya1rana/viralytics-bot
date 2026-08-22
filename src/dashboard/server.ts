@@ -128,9 +128,9 @@ export function createDashboardApp(discordClient?: any) {
         totalTickets,
         openTickets,
       ] = await Promise.all([
-        prisma.member.count({ where: { guildId } }),
-        prisma.member.count({ where: { guildId, verificationStatus: 'VERIFIED' } }),
-        prisma.member.count({ where: { guildId, verificationStatus: 'UNVERIFIED' } }),
+        prisma.member.count({ where: { guildId, hasLeft: false } }),
+        prisma.member.count({ where: { guildId, verificationStatus: 'VERIFIED', hasLeft: false } }),
+        prisma.member.count({ where: { guildId, verificationStatus: 'UNVERIFIED', hasLeft: false } }),
         prisma.submission.count({ where: { guildId } }),
         prisma.submission.count({ where: { guildId, status: 'APPROVED' } }),
         prisma.submission.count({ where: { guildId, status: 'REJECTED' } }),
@@ -719,6 +719,7 @@ export function createDashboardApp(discordClient?: any) {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const search = req.query.search as any as string | undefined;
+      const status = req.query.status as string | undefined;
       const skip = (page - 1) * limit;
 
       const whereClause: any = { guildId };
@@ -730,6 +731,13 @@ export function createDashboardApp(discordClient?: any) {
           },
         };
       }
+      
+      if (status === 'left') {
+        whereClause.hasLeft = true;
+      } else if (status === 'current' || !status) {
+        // By default, only show current members
+        whereClause.hasLeft = false;
+      }
 
       const [members, total] = await Promise.all([
         prisma.member.findMany({
@@ -737,12 +745,26 @@ export function createDashboardApp(discordClient?: any) {
           orderBy: { createdAt: 'desc' },
           skip,
           take: limit,
-          include: { user: true },
+          include: { 
+            user: true
+          },
         }),
         prisma.member.count({ where: whereClause })
       ]);
 
-      res.json({ data: members, total, page, limit });
+      // Map to include inviter info
+      const mappedMembers = await Promise.all(members.map(async (m) => {
+        const inviteRecord = await prisma.invite.findFirst({
+          where: { guildId: m.guildId, inviteeId: m.userId },
+          include: { inviter: true }
+        });
+        return {
+          ...m,
+          inviter: inviteRecord ? inviteRecord.inviter : null
+        };
+      }));
+
+      res.json({ data: mappedMembers, total, page, limit });
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

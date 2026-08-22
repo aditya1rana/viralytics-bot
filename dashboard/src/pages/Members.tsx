@@ -8,10 +8,12 @@ export default function Members() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  const [statusFilter, setStatusFilter] = useState<'current' | 'left'>('current');
+
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       setLoading(true);
-      api.getMembers(page, search)
+      api.getMembers(page, search, statusFilter)
         .then(data => {
           setMembers(data.data || []);
           setTotalPages(Math.ceil(data.total / data.limit) || 1);
@@ -21,12 +23,27 @@ export default function Members() {
     }, 500);
 
     return () => clearTimeout(delayDebounce);
-  }, [page, search]);
+  }, [page, search, statusFilter]);
 
   return (
     <div>
       <h1 style={{ marginBottom: '24px' }}>Members</h1>
       
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+        <button 
+          className={statusFilter === 'current' ? 'btn primary' : 'btn outline'} 
+          onClick={() => { setStatusFilter('current'); setPage(1); }}
+        >
+          Current Members
+        </button>
+        <button 
+          className={statusFilter === 'left' ? 'btn primary' : 'btn outline'} 
+          onClick={() => { setStatusFilter('left'); setPage(1); }}
+        >
+          Left Members
+        </button>
+      </div>
+
       <div style={{ marginBottom: '24px', maxWidth: '400px' }}>
         <input 
           type="text" 
@@ -46,9 +63,18 @@ export default function Members() {
                 <th>User ID</th>
                 <th>Username</th>
                 <th>Status</th>
-                <th>XP / Level</th>
-                <th>Submissions</th>
-                <th>Invites (Valid)</th>
+                {statusFilter === 'left' ? (
+                  <>
+                    <th>Invited By</th>
+                    <th>Left At</th>
+                  </>
+                ) : (
+                  <>
+                    <th>XP / Level</th>
+                    <th>Submissions</th>
+                    <th>Invites (Valid)</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -79,16 +105,39 @@ export default function Members() {
                           <span className="badge error">Unverified</span>
                         }
                       </td>
-                      <td>{member.totalXp || 0} XP (Lvl {member.level || 0})</td>
-                      <td>{member.totalSubmissions || 0}</td>
-                      <td>
-                        <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
-                          {validInvites}
-                        </span>
-                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px' }}>
-                          ({member.totalInvites || 0} total, {member.bonusInvites || 0} bonus, {member.leftInvites || 0} left, {member.fakeInvites || 0} fake)
-                        </span>
-                      </td>
+                      {statusFilter === 'left' ? (
+                        <>
+                          <td>
+                            {member.inviter ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                  width: '24px', height: '24px', borderRadius: '50%', background: 'var(--surface-light)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px'
+                                }}>
+                                  {member.inviter.username[0].toUpperCase()}
+                                </div>
+                                <span>{member.inviter.username}</span>
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--text-secondary)' }}>Unknown/None</span>
+                            )}
+                          </td>
+                          <td>{member.leftAt ? new Date(member.leftAt).toLocaleDateString() : 'Unknown'}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{member.totalXp || 0} XP (Lvl {member.level || 0})</td>
+                          <td>{member.totalSubmissions || 0}</td>
+                          <td>
+                            <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
+                              {validInvites}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px' }}>
+                              ({member.totalInvites || 0} total, {member.bonusInvites || 0} bonus, {member.leftInvites || 0} left, {member.fakeInvites || 0} fake)
+                            </span>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   );
                 })

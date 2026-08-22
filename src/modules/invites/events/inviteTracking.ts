@@ -78,6 +78,14 @@ const guildMemberAddEvent: BotEvent<'guildMemberAdd'> = {
         return new Collection<string, any>();
       });
       
+      // If the member is rejoining, clear hasLeft
+      const { ensureMember } = await import('../../../utils/helpers.js');
+      await ensureMember(guild.id, member.id);
+      await (await import('../../../services/database.js')).prisma.member.updateMany({
+        where: { guildId: guild.id, userId: member.id },
+        data: { hasLeft: false, leftAt: null }
+      });
+      
       let usedInvite: any;
       
       // 1. Find which invite in currentInvites had its uses count increase

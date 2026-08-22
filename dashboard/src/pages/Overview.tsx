@@ -128,6 +128,87 @@ export default function Overview() {
           </div>
         )}
       </div>
+
+      <div className="glass-card" style={{ marginTop: '24px', padding: '0', overflowX: 'auto' }}>
+        <h3 style={{ padding: '24px 24px 0 24px', margin: 0 }}>Recent Joins</h3>
+        <RecentJoinsTable />
+      </div>
     </div>
+  );
+}
+
+function RecentJoinsTable() {
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch page 1, empty search, current members
+    api.getMembers(1, '', 'current')
+      .then(data => {
+        // Just take the top 10 most recent
+        setMembers((data.data || []).slice(0, 10));
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div style={{ padding: '24px', textAlign: 'center' }}>Loading recent joins...</div>;
+  }
+
+  if (members.length === 0) {
+    return <div style={{ padding: '24px', textAlign: 'center' }}>No recent joins found.</div>;
+  }
+
+  return (
+    <table style={{ width: '100%', minWidth: '600px', marginTop: '16px' }}>
+      <thead>
+        <tr>
+          <th>User ID</th>
+          <th>Username</th>
+          <th>Joined / Created</th>
+          <th>Invited By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {members.map(member => (
+          <tr key={member.id}>
+            <td style={{ fontFamily: 'monospace' }}>{member.userId}</td>
+            <td>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold'
+                }}>
+                  {(member.user?.username || '?')[0].toUpperCase()}
+                </div>
+                {member.user?.username || 'Unknown'}
+              </div>
+            </td>
+            <td>
+              <div style={{ fontSize: '13px' }}>{new Date(member.createdAt).toLocaleDateString()}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                {new Date(member.createdAt).toLocaleTimeString()}
+              </div>
+            </td>
+            <td>
+              {member.inviter ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '24px', height: '24px', borderRadius: '50%', background: 'var(--surface-light)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px'
+                  }}>
+                    {member.inviter.username[0].toUpperCase()}
+                  </div>
+                  <span>{member.inviter.username}</span>
+                </div>
+              ) : (
+                <span style={{ color: 'var(--text-secondary)' }}>Unknown/None</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

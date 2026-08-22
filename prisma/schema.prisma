@@ -245,6 +245,8 @@ model Member {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  hasLeft   Boolean  @default(false)
+  leftAt    DateTime?
 
   @@unique([guildId, userId])
   @@index([guildId])

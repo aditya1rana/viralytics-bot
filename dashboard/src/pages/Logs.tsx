@@ -11,6 +11,11 @@ export default function Logs() {
     { id: 'audit', label: 'Audit Logs' },
     { id: 'submissions', label: 'Submissions' },
     { id: 'verifications', label: 'Verifications' },
+    { id: 'mod', label: 'Mod Actions' },
+    { id: 'error', label: 'Errors' },
+    { id: 'duplicate', label: 'Duplicates' },
+    { id: 'ticket', label: 'Tickets' },
+    { id: 'campaign', label: 'Campaigns' },
   ];
 
   useEffect(() => {
@@ -36,8 +41,11 @@ export default function Logs() {
       let actionUser = '';
       let details = '';
 
-      if (activeTab === 'audit') {
-        actionUser = `${log.action.replace(/_/g, ' ')}`;
+      if (log.isDiscordLog) {
+        actionUser = log.actionUser;
+        details = log.details;
+      } else if (activeTab === 'audit') {
+        actionUser = `${log.action?.replace(/_/g, ' ') || 'Unknown'}`;
         details = `Actor: ${log.actor?.username || log.actorId || 'System'} | Target: ${log.targetId || 'N/A'} ${log.reason ? `| Reason: ${log.reason}` : ''}`;
       } else if (activeTab === 'submissions') {
         actionUser = `${log.user?.username || log.userId} (Clip Submission)`;
@@ -63,7 +71,7 @@ export default function Logs() {
     <div>
       <h1 style={{ marginBottom: '24px' }}>Logs</h1>
       
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {tabs.map(tab => (
           <button
             key={tab.id}

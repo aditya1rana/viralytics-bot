@@ -903,6 +903,114 @@ export function createDashboardApp(discordClient?: any) {
     }
   });
 
+  // GET /api/logs
+  app.get('/api/logs', authMiddleware, async (req, res) => {
+    try {
+      const type = req.query.type as string || 'audit';
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = 50;
+      const skip = (page - 1) * limit;
+
+      if (type === 'audit') {
+        const logs = await prisma.auditLog.findMany({
+          where: { guildId },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+          include: { actor: true }
+        });
+        res.json(logs);
+        return;
+      }
+
+      if (type === 'submissions') {
+        const logs = await prisma.submission.findMany({
+          where: { guildId },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+          include: { user: true, campaign: true }
+        });
+        res.json(logs);
+        return;
+      }
+
+      if (type === 'verifications') {
+        const logs = await prisma.member.findMany({
+          where: { guildId, verificationStatus: 'VERIFIED' },
+          orderBy: { verifiedAt: 'desc' },
+          skip,
+          take: limit,
+          include: { user: true }
+        });
+        res.json(logs);
+        return;
+      }
+
+      // Discord Channel Logs (mod, error, duplicate, ticket, campaign)
+      if (['mod', 'error', 'duplicate', 'ticket', 'campaign'].includes(type)) {
+        if (!discordClient) {
+          res.json([]);
+          return;
+        }
+
+        const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId } });
+        let channelId: string | null = null;
+        switch (type) {
+          case 'mod': channelId = guildConfig?.moderationLogChannelId || null; break;
+          case 'error': channelId = guildConfig?.errorLogChannelId || null; break;
+          case 'duplicate': channelId = guildConfig?.duplicateLogChannelId || null; break;
+          case 'ticket': channelId = guildConfig?.ticketLogChannelId || null; break;
+          case 'campaign': channelId = guildConfig?.campaignLogChannelId || null; break;
+        }
+
+        if (!channelId) {
+          res.json([]);
+          return;
+        }
+
+        const channel = discordClient.channels.cache.get(channelId) || await discordClient.channels.fetch(channelId).catch(() => null);
+        if (!channel || !channel.isTextBased()) {
+          res.json([]);
+          return;
+        }
+
+        const messages = await channel.messages.fetch({ limit: 50 });
+        const logs = messages.map((m: any) => {
+          let details = m.content || '';
+          let actionUser = '';
+
+          if (m.embeds && m.embeds.length > 0) {
+            const embed = m.embeds[0];
+            actionUser = embed.title || 'Log';
+            details = embed.description || '';
+            if (embed.fields && embed.fields.length > 0) {
+               details += ' | ' + embed.fields.map((f: any) => `${f.name}: ${f.value}`).join(' | ');
+            }
+          } else {
+             actionUser = 'Message';
+          }
+
+          return {
+            id: m.id,
+            createdAt: m.createdAt,
+            actionUser,
+            details,
+            isDiscordLog: true
+          };
+        });
+
+        res.json(logs);
+        return;
+      }
+
+      res.json([]);
+    } catch (error) {
+      logger.error('Error fetching logs:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/auth/invite-link (Public endpoint for inviting the bot)
   app.get('/api/auth/invite-link', (req, res) => {
     const clientId = config.DISCORD_CLIENT_ID || '1528892453287886898';

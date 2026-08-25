@@ -422,6 +422,7 @@ const command: Command = {
                 );
 
                 if (interaction.channel?.isTextBased()) {
+                    await prisma.campaign.update({ where: { id: campaign.id }, data: { channelId: interaction.channel.id } });
                     await (interaction.channel as any).send({ embeds: [announceEmbed], components: [buttons] });
                 }
                 

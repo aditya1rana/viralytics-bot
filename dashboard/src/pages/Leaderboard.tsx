@@ -417,7 +417,9 @@ export default function Leaderboard() {
         }}>
           <div className="glass-card" style={{
             width: '90%', maxWidth: '800px', maxHeight: '80vh', display: 'flex', flexDirection: 'column',
-            padding: '24px', borderRadius: '16px', overflow: 'hidden'
+            padding: '24px', borderRadius: '16px', overflow: 'hidden',
+            backgroundColor: 'var(--bg-color)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ margin: 0, fontSize: '20px' }}>Invites Detail</h2>

@@ -36,7 +36,7 @@ const verifyButtonHandler: ButtonHandler = {
           if (role) {
             try {
               await member.roles.add(role);
-              await interaction.editReply({ content: `✅ Assigned you ${role.name} role!` });
+              await interaction.editReply({ content: `✅ Assigned you ${role.name} role!\n\n**To get started, please open a General ticket in the support channel!**` });
               await verificationService.logVerification(guild, member);
               return;
             } catch (err) {
@@ -49,7 +49,7 @@ const verifyButtonHandler: ButtonHandler = {
           }
         }
         
-        await interaction.editReply({ content: 'You are already verified!' });
+        await interaction.editReply({ content: 'You are already verified!\n\n**To get started, please open a General ticket in the support channel!**' });
         return;
       }
 
@@ -76,7 +76,7 @@ const verifyButtonHandler: ButtonHandler = {
         if (success) {
           const embed = buildEmbed({
             title: '✅ Verification Successful',
-            description: 'You have been verified and granted access to the server.',
+            description: 'You have been verified and granted access to the server.\n\n**To get started, please open a General ticket in the support channel!**',
             color: COLORS.SUCCESS
           });
           await interaction.editReply({ embeds: [embed] });

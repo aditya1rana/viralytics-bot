@@ -45,7 +45,7 @@ const captchaModalHandler: ModalHandler = {
               await member.roles.add(role);
               const embed = buildEmbed({
                 title: '✅ Verification Successful',
-                description: 'You solved the captcha and have been verified!',
+                description: 'You solved the captcha and have been verified!\n\n**To get started, please open a General ticket in the support channel!**',
                 color: COLORS.SUCCESS
               });
               await interaction.editReply({ embeds: [embed] });

@@ -95,6 +95,7 @@ export const api = {
   getActivityStats: () => fetchWithAuth('/stats/activity'),
   getLeaderboards: () => fetchWithAuth('/leaderboards'),
   getUserInvites: (userId: string) => fetchWithAuth(`/users/${userId}/invites`),
+  getUnknownInvites: () => fetchWithAuth('/invites/unknown'),
   getInviteLink: () => fetchWithAuth('/auth/invite-link'),
   getAdminSubscriptions: () => fetchWithAuth('/admin/subscriptions'),
   toggleSubscription: (guildId: string, isSubscribed: boolean, options: { durationDays?: number; customExpiresAt?: string; subscriptionTier?: string } = {}) => 

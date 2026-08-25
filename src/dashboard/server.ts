@@ -912,6 +912,48 @@ export function createDashboardApp(discordClient?: any) {
     }
   });
 
+  // GET /api/invites/unknown
+  app.get('/api/invites/unknown', authMiddleware, async (req, res) => {
+    try {
+      const knownInvites = await prisma.invite.findMany({
+        where: { guildId },
+        select: { inviteeId: true }
+      });
+      const knownInviteeIds = knownInvites.map(i => i.inviteeId);
+
+      const unknownMembers = await prisma.member.findMany({
+        where: {
+          guildId,
+          userId: { notIn: knownInviteeIds }
+        },
+        include: { user: true },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      const result = unknownMembers.map(m => {
+        const accountAgeDays = m.accountAgeDays !== null ? m.accountAgeDays : (
+          m.user?.accountCreatedAt ? Math.floor((new Date(m.createdAt || Date.now()).getTime() - m.user.accountCreatedAt.getTime()) / (1000 * 60 * 60 * 24)) : null
+        );
+        return {
+          id: m.id,
+          userId: m.userId,
+          username: m.user?.username || 'Unknown',
+          avatarUrl: m.user?.avatarUrl,
+          joinedAt: m.createdAt,
+          verificationStatus: m.verificationStatus,
+          accountAgeDays,
+          isFake: false,
+          fakeReason: null
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Error fetching unknown invites:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/leaderboards
   app.get('/api/leaderboards', authMiddleware, async (req, res) => {
     try {

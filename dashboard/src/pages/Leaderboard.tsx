@@ -45,6 +45,9 @@ export default function Leaderboard() {
   const [selectedUserForInvites, setSelectedUserForInvites] = useState<string | null>(null);
   const [invitesData, setInvitesData] = useState<InviteDetail[] | null>(null);
   const [invitesLoading, setInvitesLoading] = useState(false);
+  const [showUnknownInvitesModal, setShowUnknownInvitesModal] = useState(false);
+  const [unknownInvitesData, setUnknownInvitesData] = useState<any[] | null>(null);
+  const [unknownInvitesLoading, setUnknownInvitesLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -155,6 +158,21 @@ export default function Leaderboard() {
     };
   };
 
+  const handleOpenUnknownInvites = () => {
+    setShowUnknownInvitesModal(true);
+    setUnknownInvitesLoading(true);
+    setUnknownInvitesData(null);
+    api.getUnknownInvites()
+      .then(data => {
+        setUnknownInvitesData(data);
+        setUnknownInvitesLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch unknown invites', err);
+        setUnknownInvitesLoading(false);
+      });
+  };
+
   const getMedalEmoji = (rank: number) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
@@ -197,9 +215,13 @@ export default function Leaderboard() {
 
       {activeTab === 'invites' && leaderboards && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
-          <div className="glass-card" style={{ padding: '12px 20px', borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div 
+            className="glass-card hover-glow" 
+            style={{ padding: '12px 20px', borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+            onClick={handleOpenUnknownInvites}
+          >
             <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Unknown Invites (No Tracker):</span>
-            <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{leaderboards.totalUnknownInvites}</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--primary)' }}>{leaderboards.totalUnknownInvites}</span>
           </div>
         </div>
       )}
@@ -554,6 +576,109 @@ export default function Leaderboard() {
               ) : (
                 <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
                   No invites found for this user.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unknown Invites Modal */}
+      {showUnknownInvitesModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }} onClick={(e) => {
+          if (e.target === e.currentTarget) setShowUnknownInvitesModal(false);
+        }}>
+          <div className="glass-card" style={{
+            width: '90%', maxWidth: '800px', maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            padding: '24px', borderRadius: '16px', backgroundColor: 'var(--bg-color)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--text-primary)' }}>
+                  Unknown Invites
+                </h2>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Users who joined directly or via vanity links, not tracked to any specific inviter.
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowUnknownInvitesModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '24px' }}
+              >×</button>
+            </div>
+            
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
+              {unknownInvitesLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading...</div>
+              ) : unknownInvitesData && unknownInvitesData.length > 0 ? (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--glass-border)', textAlign: 'left' }}>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 'normal' }}>User</th>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 'normal' }}>Verification</th>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 'normal' }}>Joined At</th>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 'normal' }}>Account Age (when joined)</th>
+                      <th style={{ padding: '12px 8px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 'normal' }}>Profile</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unknownInvitesData.map(inv => (
+                      <tr key={inv.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td style={{ padding: '12px 8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {inv.avatarUrl ? (
+                              <img src={inv.avatarUrl} alt={inv.username} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
+                                {inv.username[0].toUpperCase()}
+                              </div>
+                            )}
+                            <span style={{ fontWeight: '500' }}>{inv.username}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          {inv.verificationStatus === 'VERIFIED' ? (
+                            <span style={{ color: '#4ade80', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4ade80' }}></div>
+                              Verified
+                            </span>
+                          ) : (
+                            <span style={{ color: '#f87171', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f87171' }}></div>
+                              Unverified
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {new Date(inv.joinedAt).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '12px 8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                          {inv.accountAgeDays !== null && inv.accountAgeDays !== undefined 
+                            ? `${inv.accountAgeDays} days old` 
+                            : 'Unknown'}
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <a 
+                            href={`https://discord.com/users/${inv.userId}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '13px' }}
+                          >
+                            View Profile
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                  No unknown invites found.
                 </div>
               )}
             </div>

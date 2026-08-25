@@ -109,11 +109,15 @@ ${ticketTypeContext}
         if (responseText.includes('[PING_MOD]')) {
           responseText = responseText.replace(/\[PING_MOD\]/g, '').trim();
           
-          const supportRole = guildConfig.supportRoleId || guildConfig.modRoleId;
-          if (supportRole) {
-            responseText += `\n\n<@&${supportRole}>, a user has requested your assistance!`;
+          let pings = [];
+          if (guildConfig.founderRoleId) pings.push(`<@&${guildConfig.founderRoleId}>`);
+          if (guildConfig.supportRoleId) pings.push(`<@&${guildConfig.supportRoleId}>`);
+          if (guildConfig.modRoleId && guildConfig.modRoleId !== guildConfig.supportRoleId) pings.push(`<@&${guildConfig.modRoleId}>`);
+
+          if (pings.length > 0) {
+            responseText += `\n\n${pings.join(' ')}, a user has requested your assistance!`;
           } else {
-            responseText += `\n\n*(Attempted to ping staff, but no Support/Mod role is configured in the dashboard)*`;
+            responseText += `\n\n*(Attempted to ping staff, but no roles are configured in the dashboard)*`;
           }
         }
         
@@ -156,18 +160,16 @@ ${ticketTypeContext}
 
       const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
       
-      // Find active staff (For simplicity, mention founder or support role)
-      let staffMention = '';
-      if (config?.founderRoleId) {
-        staffMention = `<@&${config.founderRoleId}>`;
-      } else if (config?.supportRoleId) {
-        staffMention = `<@&${config.supportRoleId}>`;
-      } else {
-        staffMention = 'a moderator or founder';
-      }
+      // Find active staff (Mention founder and support role)
+      let staffMention = [];
+      if (config?.founderRoleId) staffMention.push(`<@&${config.founderRoleId}>`);
+      if (config?.supportRoleId) staffMention.push(`<@&${config.supportRoleId}>`);
+      if (config?.modRoleId && config.modRoleId !== config.supportRoleId) staffMention.push(`<@&${config.modRoleId}>`);
+      
+      const staffMentionStr = staffMention.length > 0 ? staffMention.join(' ') : 'a moderator or founder';
 
       await channel.send({
-        content: `🚨 **HUMAN SUPPORT REQUESTED**\n\n${staffMention} has been notified and this ticket has been handed over to human support.\n\nPlease wait for a moment until the moderator or founder replies.\n\n*(Your ticket is now waiting for human support. AI responses have been disabled.)*`
+        content: `🚨 **HUMAN SUPPORT REQUESTED**\n\n${staffMentionStr} has been notified and this ticket has been handed over to human support.\n\nPlease wait for a moment until the moderator or founder replies.\n\n*(Your ticket is now waiting for human support. AI responses have been disabled.)*`
       });
 
     } catch (error) {

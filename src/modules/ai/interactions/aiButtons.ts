@@ -6,7 +6,7 @@ import logger from '../../../services/logger.js';
 import { hasStaffPermission } from '../utils/permissions.js';
 
 const handler: ButtonHandler = {
-  customId: 'ai_',
+  customId: /^ai_(.+)$/,
   async execute(interaction: ButtonInteraction) {
     const action = interaction.customId;
     const channel = interaction.channel as TextChannel;

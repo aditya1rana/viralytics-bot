@@ -37,22 +37,22 @@ const handler: SelectMenuHandler = {
       let aiGreeting = '';
       switch (categoryValue) {
         case 'SUPPORT':
-          aiGreeting = `🤖 **Viralytics AI Support**\n\nI'm here to help with general Viralytics and server-related questions.\n\nAsk your question below or click 🧑‍💼 Talk to Moderator if you'd rather speak with the team.`;
+          aiGreeting = `🛠️ **Viralytics AI Support**\n\nI'm here to help with general Viralytics and server-related questions.`;
           break;
         case 'PAYMENT':
-          aiGreeting = `💳 **Viralytics Payment Support**\n\nI can help with general payment and reward questions.\n\nFor account-specific payment issues, click 🧑‍💼 Talk to Moderator.`;
+          aiGreeting = `💳 **Viralytics Payment Support**\n\nI can help with general payment and reward questions.`;
           break;
         case 'CAMPAIGN_HELP':
-          aiGreeting = `🎬 **Viralytics Campaign Support**\n\nI can help with campaign rules, clipping, submissions and campaign-related questions.\n\nNeed a human? Click 🧑‍💼 Talk to Moderator.`;
+          aiGreeting = `📈 **Viralytics Campaign Support**\n\nI can help with campaign rules, clipping, submissions and campaign-related questions.`;
           break;
         case 'PARTNERSHIP':
-          aiGreeting = `🤝 **Viralytics Partnerships**\n\nTell us about your company, service, creator profile or partnership idea.\n\nA member of the team can take over when needed.`;
+          aiGreeting = `🤝 **Viralytics Partnerships**\n\nTell us about your company, service, creator profile or partnership idea.`;
           break;
         case 'BUG_REPORT':
-          aiGreeting = `🐛 **Viralytics Bug Report**\n\nPlease describe the issue and provide screenshots, videos, errors or relevant links if available.\n\nThe AI will help collect the details before escalating to the team when needed.`;
+          aiGreeting = `🐛 **Viralytics Bug Report**\n\nPlease describe the issue and provide screenshots, videos, errors or relevant links if available.`;
           break;
         default:
-          aiGreeting = `🤖 **Viralytics AI Support**\n\nHow can I help you today?\nClick 🧑‍💼 Talk to Moderator for human support.`;
+          aiGreeting = `🤖 **Viralytics AI Support**\n\nHow can I help you today?`;
       }
 
       const embed = new EmbedBuilder()

@@ -915,7 +915,7 @@ export function createDashboardApp(discordClient?: any) {
   // GET /api/leaderboards
   app.get('/api/leaderboards', authMiddleware, async (req, res) => {
     try {
-      const [xpLeaderboard, submissionLeaderboard, allMembers] = await Promise.all([
+      const [xpLeaderboard, submissionLeaderboard, allMembers, totalMembersCount, totalInvitesCount] = await Promise.all([
         prisma.member.findMany({
           where: { guildId },
           orderBy: { totalXp: 'desc' },
@@ -931,8 +931,12 @@ export function createDashboardApp(discordClient?: any) {
         prisma.member.findMany({
           where: { guildId },
           include: { user: true }
-        })
+        }),
+        prisma.member.count({ where: { guildId } }),
+        prisma.invite.count({ where: { guildId } })
       ]);
+
+      const totalUnknownInvites = Math.max(0, totalMembersCount - totalInvitesCount);
 
       // Calculate valid invites and sort for invite leaderboard
       const sortedInvitees = allMembers
@@ -972,7 +976,8 @@ export function createDashboardApp(discordClient?: any) {
         inviteLeaderboard: sortedInvitees.map((m, idx) => ({
           ...m,
           rank: idx + 1
-        }))
+        })),
+        totalUnknownInvites
       });
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

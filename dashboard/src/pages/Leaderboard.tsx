@@ -37,6 +37,7 @@ export default function Leaderboard() {
     xpLeaderboard: LeaderboardEntry[];
     submissionLeaderboard: LeaderboardEntry[];
     inviteLeaderboard: LeaderboardEntry[];
+    totalUnknownInvites: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -193,6 +194,15 @@ export default function Leaderboard() {
           🎬 Submissions Leaderboard
         </button>
       </div>
+
+      {activeTab === 'invites' && leaderboards && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
+          <div className="glass-card" style={{ padding: '12px 20px', borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Unknown Invites (No Tracker):</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{leaderboards.totalUnknownInvites}</span>
+          </div>
+        </div>
+      )}
 
       {activeData.length === 0 ? (
         <div className="glass-card" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>

@@ -76,7 +76,7 @@ IMPORTANT RULES:
 1. ONLY mention the start-here (<#1520814685467836456>) and FAQ (<#1520816303353364660>) channels when a user asks general questions like "what is clipping", "how to start clipping", or "general server info". DO NOT mention these channels when they ask about campaigns or where to find clips!
 2. If a user asks about active campaigns, YOU MUST read the 'Live Data' section below and list out the exact active campaigns from it (payout rates, etc). Provide the Join Channel link, and tell them that once they click 'Join Campaign' there, they will be granted the campaign role to access it!
 3. If a user asks where to find clips, raw footage, google drive links, or assets for a campaign, tell them they can find them in the #clip-bank channel inside that specific campaign's category! DO NOT tell them to check start-here or FAQ for clips!
-4. DO NOT repeatedly mention or tell the user to click "Talk to Moderator". Only mention a moderator if they explicitly ask for one or have exhausted your help.
+4. If the user explicitly asks to speak with a moderator/human, or if they have exhausted your help, you MUST append exactly `[PING_MOD]` somewhere in your response. This special code will automatically tag the staff team so they get notified! Do not say you notified them unless you include `[PING_MOD]`.
 
 Live Data:
 ${campaignData}
@@ -104,7 +104,20 @@ ${ticketTypeContext}
       });
 
       if (response.text) {
-        await message.reply(response.text);
+        let responseText = response.text;
+        
+        if (responseText.includes('[PING_MOD]')) {
+          responseText = responseText.replace(/\[PING_MOD\]/g, '').trim();
+          
+          const supportRole = guildConfig.supportRoleId || guildConfig.modRoleId;
+          if (supportRole) {
+            responseText += `\n\n<@&${supportRole}>, a user has requested your assistance!`;
+          } else {
+            responseText += `\n\n*(Attempted to ping staff, but no Support/Mod role is configured in the dashboard)*`;
+          }
+        }
+        
+        await message.reply(responseText);
       }
       
     } catch (error) {

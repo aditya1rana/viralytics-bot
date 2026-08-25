@@ -49,6 +49,18 @@ export default function ConfigEditor() {
     const isBool = typeof val === 'boolean';
     const isNum = typeof val === 'number';
 
+    if (key === 'aiKnowledgeBase') {
+      return (
+        <textarea
+          value={val || ''}
+          onChange={(e) => handleChange(section, key, e.target.value)}
+          placeholder={`Enter ${key}`}
+          rows={5}
+          style={{ width: '100%', resize: 'vertical' }}
+        />
+      );
+    }
+
     if (isBool) {
       return (
         <select
@@ -107,7 +119,7 @@ export default function ConfigEditor() {
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
                 {Object.entries(settings).map(([key, val]) => (
-                  <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: key === 'aiKnowledgeBase' ? '1 / -1' : 'auto' }}>
                     <label style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
                       {key.replace(/([A-Z])/g, ' $1').trim()}
                     </label>

@@ -680,6 +680,13 @@ export function createDashboardApp(discordClient?: any) {
         },
         Payouts: {
           defaultCurrency: guildConfig.defaultCurrency,
+        },
+        AI_Settings: {
+          aiEnabled: guildConfig.aiEnabled,
+          aiModel: guildConfig.aiModel,
+          founderRoleId: guildConfig.founderRoleId,
+          supportRoleId: guildConfig.supportRoleId,
+          aiKnowledgeBase: guildConfig.aiKnowledgeBase,
         }
       };
 

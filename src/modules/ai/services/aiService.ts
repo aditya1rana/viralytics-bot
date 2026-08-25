@@ -7,7 +7,7 @@ import embedBuilder from '../../../services/embedBuilder.js';
 
 const aiConfig = {
   apiKey: process.env.GEMINI_API_KEY || '',
-  model: 'gemini-2.5-flash-lite',
+  model: 'gemini-3.5-flash-lite',
 };
 
 // Rate limiting map
@@ -63,9 +63,15 @@ Current Ticket Type: ${ticket.category}
 ${ticketTypeContext}
 `;
       
+      // Map deprecated model
+      let finalModel = guildConfig.aiModel || aiConfig.model;
+      if (finalModel === 'gemini-2.5-flash-lite') {
+        finalModel = 'gemini-3.5-flash-lite';
+      }
+
       // We will create a fresh model instance with the system prompt
       const response = await ai.models.generateContent({
-        model: guildConfig.aiModel || aiConfig.model,
+        model: finalModel,
         contents: [
             { role: 'user', parts: [{ text: systemPrompt + '\n\nNow respond to the latest user message.' }] },
             ...conversationHistory

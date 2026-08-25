@@ -334,8 +334,22 @@ model GuildConfig {
   // Allowed Platforms
   allowedPlatforms Platform[] @default([INSTAGRAM_REELS, TIKTOK, YOUTUBE_SHORTS, FACEBOOK_REELS, X_VIDEOS, THREADS])
 
+  // AI Configuration
+  aiEnabled             Boolean @default(true)
+  aiKnowledgeBase       String? @db.Text
+  aiModel               String  @default("gemini-2.5-flash")
+  founderRoleId         String?
+  supportRoleId         String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum AIStatus {
+  AI_ACTIVE
+  AI_DISABLED
+  WAITING_FOR_MODERATOR
+  HUMAN_CONTROLLED
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -466,6 +480,7 @@ model Ticket {
 
   category TicketCategory
   status   TicketStatus   @default(OPEN)
+  aiStatus AIStatus       @default(AI_ACTIVE)
   subject  String
   priority Int            @default(0)
 

@@ -28,6 +28,7 @@ interface InviteDetail {
   accountAgeDays?: number | null;
   isFake: boolean;
   fakeReason?: string | null;
+  verificationStatus: string;
 }
 
 export default function Leaderboard() {
@@ -224,13 +225,21 @@ export default function Leaderboard() {
                 }}
               >
                 <div style={{ fontSize: '32px' }}>{getMedalEmoji(2)}</div>
-                <div style={{
-                  width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
-                  border: '2px solid rgba(192, 192, 192, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '24px', fontWeight: 'bold', color: 'rgba(192, 192, 192, 1)'
-                }}>
-                  {topThree[1].username[0].toUpperCase()}
-                </div>
+                {topThree[1].avatarUrl ? (
+                  <img 
+                    src={topThree[1].avatarUrl} 
+                    alt={topThree[1].username} 
+                    style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(192, 192, 192, 0.5)' }} 
+                  />
+                ) : (
+                  <div style={{
+                    width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
+                    border: '2px solid rgba(192, 192, 192, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '24px', fontWeight: 'bold', color: 'rgba(192, 192, 192, 1)'
+                  }}>
+                    {topThree[1].username[0].toUpperCase()}
+                  </div>
+                )}
                 <div style={{ fontWeight: 'bold', fontSize: '18px', textAlign: 'center' }}>
                   {topThree[1].username}
                 </div>
@@ -262,13 +271,21 @@ export default function Leaderboard() {
                 }}
               >
                 <div style={{ fontSize: '40px' }}>{getMedalEmoji(1)}</div>
-                <div style={{
-                  width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
-                  border: '3px solid rgba(255, 215, 0, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '32px', fontWeight: 'bold', color: 'rgba(255, 215, 0, 1)'
-                }}>
-                  {topThree[0].username[0].toUpperCase()}
-                </div>
+                {topThree[0].avatarUrl ? (
+                  <img 
+                    src={topThree[0].avatarUrl} 
+                    alt={topThree[0].username} 
+                    style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid rgba(255, 215, 0, 0.7)' }} 
+                  />
+                ) : (
+                  <div style={{
+                    width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
+                    border: '3px solid rgba(255, 215, 0, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '32px', fontWeight: 'bold', color: 'rgba(255, 215, 0, 1)'
+                  }}>
+                    {topThree[0].username[0].toUpperCase()}
+                  </div>
+                )}
                 <div style={{ fontWeight: 'bold', fontSize: '22px', textAlign: 'center', color: '#FFD700' }}>
                   {topThree[0].username}
                 </div>
@@ -298,13 +315,21 @@ export default function Leaderboard() {
                 }}
               >
                 <div style={{ fontSize: '28px' }}>{getMedalEmoji(3)}</div>
-                <div style={{
-                  width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
-                  border: '2px solid rgba(205, 127, 50, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '20px', fontWeight: 'bold', color: 'rgba(205, 127, 50, 1)'
-                }}>
-                  {topThree[2].username[0].toUpperCase()}
-                </div>
+                {topThree[2].avatarUrl ? (
+                  <img 
+                    src={topThree[2].avatarUrl} 
+                    alt={topThree[2].username} 
+                    style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(205, 127, 50, 0.5)' }} 
+                  />
+                ) : (
+                  <div style={{
+                    width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
+                    border: '2px solid rgba(205, 127, 50, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '20px', fontWeight: 'bold', color: 'rgba(205, 127, 50, 1)'
+                  }}>
+                    {topThree[2].username[0].toUpperCase()}
+                  </div>
+                )}
                 <div style={{ fontWeight: 'bold', fontSize: '16px', textAlign: 'center' }}>
                   {topThree[2].username}
                 </div>
@@ -362,12 +387,20 @@ export default function Leaderboard() {
                       <td style={{ fontFamily: 'monospace', fontSize: '13px' }}>{entry.userId}</td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{
-                            width: '28px', height: '28px', borderRadius: '50%', background: 'var(--glass-border)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold'
-                          }}>
-                            {entry.username[0].toUpperCase()}
-                          </div>
+                          {entry.avatarUrl ? (
+                            <img 
+                              src={entry.avatarUrl} 
+                              alt={entry.username} 
+                              style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} 
+                            />
+                          ) : (
+                            <div style={{
+                              width: '28px', height: '28px', borderRadius: '50%', background: 'var(--glass-border)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 'bold'
+                            }}>
+                              {entry.username[0].toUpperCase()}
+                            </div>
+                          )}
                           {entry.username}
                         </div>
                       </td>
@@ -436,7 +469,8 @@ export default function Leaderboard() {
                   <thead>
                     <tr>
                       <th>User</th>
-                      <th>Status</th>
+                      <th>Verification</th>
+                      <th>Invite Status</th>
                       <th>Account Age</th>
                       <th>Profile</th>
                     </tr>
@@ -446,14 +480,31 @@ export default function Leaderboard() {
                       <tr key={inv.inviteeId}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{
-                              width: '24px', height: '24px', borderRadius: '50%', background: 'var(--glass-border)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px'
-                            }}>
-                              {inv.username[0].toUpperCase()}
-                            </div>
+                            {inv.avatarUrl ? (
+                              <img 
+                                src={inv.avatarUrl} 
+                                alt={inv.username} 
+                                style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} 
+                              />
+                            ) : (
+                              <div style={{
+                                width: '24px', height: '24px', borderRadius: '50%', background: 'var(--glass-border)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px'
+                              }}>
+                                {inv.username[0].toUpperCase()}
+                              </div>
+                            )}
                             {inv.username}
                           </div>
+                        </td>
+                        <td>
+                          <span style={{
+                            padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold',
+                            backgroundColor: inv.verificationStatus === 'VERIFIED' ? 'rgba(46, 204, 113, 0.2)' : 'rgba(231, 76, 60, 0.2)',
+                            color: inv.verificationStatus === 'VERIFIED' ? '#2ecc71' : '#e74c3c'
+                          }}>
+                            {inv.verificationStatus === 'VERIFIED' ? '🟢 Verified' : '🔴 Unverified'}
+                          </span>
                         </td>
                         <td>
                           <span style={{

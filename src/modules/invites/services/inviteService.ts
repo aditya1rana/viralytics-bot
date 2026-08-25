@@ -7,7 +7,7 @@ export class InviteService {
   /**
    * Create an Invite record when someone joins
    */
-  static async trackInvite(guildId: string, inviterId: string, inviteeId: string, code: string, isFake: boolean) {
+  static async trackInvite(guildId: string, inviterId: string, inviteeId: string, code: string, isFake: boolean, accountAgeDays?: number) {
     try {
       const status = isFake ? InviteStatus.FAKE : InviteStatus.VALID;
 
@@ -39,7 +39,8 @@ export class InviteService {
             joinedAt: new Date(),
             leftAt: null,
             isFake,
-            fakeReason: isFake ? 'Account too new or self-invite' : null
+            fakeReason: isFake ? 'Account too new or self-invite' : null,
+            inviteeAccountAgeDays: accountAgeDays
           }
         });
       } else {
@@ -51,7 +52,8 @@ export class InviteService {
             code,
             status,
             isFake,
-            fakeReason: isFake ? 'Account too new or self-invite' : null
+            fakeReason: isFake ? 'Account too new or self-invite' : null,
+            inviteeAccountAgeDays: accountAgeDays
           }
         });
       }

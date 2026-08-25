@@ -90,12 +90,20 @@ export default function Members() {
                       <td style={{ fontFamily: 'monospace' }}>{member.userId}</td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{
-                            width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold'
-                          }}>
-                            {(member.user?.username || '?')[0].toUpperCase()}
-                          </div>
+                          {member.user?.avatarUrl ? (
+                            <img 
+                              src={member.user.avatarUrl} 
+                              alt={member.user.username} 
+                              style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} 
+                            />
+                          ) : (
+                            <div style={{
+                              width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold'
+                            }}>
+                              {(member.user?.username || '?')[0].toUpperCase()}
+                            </div>
+                          )}
                           {member.user?.username || 'Unknown'}
                         </div>
                       </td>

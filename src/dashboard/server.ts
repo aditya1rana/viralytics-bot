@@ -848,21 +848,39 @@ export function createDashboardApp(discordClient?: any) {
     try {
       const invites = await prisma.invite.findMany({
         where: { inviterId: req.params.userId as string, guildId },
-        include: { invitee: true },
+        include: { 
+          invitee: {
+            include: {
+              members: {
+                where: { guildId }
+              }
+            }
+          }
+        },
         orderBy: { id: 'desc' } // or any sort order, id is cuid so it represents time roughly
       });
 
       const result = invites.map(inv => {
-        // Calculate account age at the time of invite, or current time if inviteeAccountAgeDays is null
-        // But actually the schema has inviteeAccountAgeDays
+        let accountAgeDays = inv.inviteeAccountAgeDays;
+        
+        // Fallback for old records
+        if (accountAgeDays === null && inv.invitee?.accountCreatedAt) {
+          const joinDate = inv.joinedAt ? new Date(inv.joinedAt).getTime() : Date.now();
+          const createdDate = new Date(inv.invitee.accountCreatedAt).getTime();
+          accountAgeDays = Math.floor((joinDate - createdDate) / (1000 * 60 * 60 * 24));
+        }
+
+        const member = inv.invitee?.members?.[0];
+        
         return {
           inviteeId: inv.inviteeId,
           username: inv.invitee?.username || 'Unknown',
           avatarUrl: inv.invitee?.avatarUrl,
           status: inv.status,
-          accountAgeDays: inv.inviteeAccountAgeDays,
+          accountAgeDays: accountAgeDays,
           isFake: inv.isFake,
-          fakeReason: inv.fakeReason
+          fakeReason: inv.fakeReason,
+          verificationStatus: member?.verificationStatus || 'UNVERIFIED'
         };
       });
 

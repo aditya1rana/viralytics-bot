@@ -141,8 +141,9 @@ const guildMemberAddEvent: BotEvent<'guildMemberAdd'> = {
         // Prevent self-invites
         if (inviterId !== member.id) {
           const isFake = await InviteService.detectFakeInvite(member);
+          const accountAge = Math.floor((Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24));
           
-          await InviteService.trackInvite(guild.id, inviterId, member.id, usedInvite.code, isFake);
+          await InviteService.trackInvite(guild.id, inviterId, member.id, usedInvite.code, isFake, accountAge);
           
           if (!isFake) {
             // Award XP to the inviter

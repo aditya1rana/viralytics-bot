@@ -847,7 +847,7 @@ export function createDashboardApp(discordClient?: any) {
   app.get('/api/users/:userId/invites', authMiddleware, async (req, res) => {
     try {
       const invites = await prisma.invite.findMany({
-        where: { inviterId: req.params.userId, guildId },
+        where: { inviterId: req.params.userId as string, guildId },
         include: { invitee: true },
         orderBy: { id: 'desc' } // or any sort order, id is cuid so it represents time roughly
       });

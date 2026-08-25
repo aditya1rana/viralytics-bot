@@ -90,6 +90,7 @@ export const api = {
   payPayout: (id: string) => fetchWithAuth(`/payouts/${id}/pay`, { method: 'POST' }),
   getActivityStats: () => fetchWithAuth('/stats/activity'),
   getLeaderboards: () => fetchWithAuth('/leaderboards'),
+  getUserInvites: (userId: string) => fetchWithAuth(`/users/${userId}/invites`),
   getInviteLink: () => fetchWithAuth('/auth/invite-link'),
   getAdminSubscriptions: () => fetchWithAuth('/admin/subscriptions'),
   toggleSubscription: (guildId: string, isSubscribed: boolean, options: { durationDays?: number; customExpiresAt?: string; subscriptionTier?: string } = {}) => 

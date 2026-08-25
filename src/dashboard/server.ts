@@ -843,6 +843,36 @@ export function createDashboardApp(discordClient?: any) {
     }
   });
 
+  // GET /api/users/:userId/invites
+  app.get('/api/users/:userId/invites', authMiddleware, async (req, res) => {
+    try {
+      const invites = await prisma.invite.findMany({
+        where: { inviterId: req.params.userId, guildId },
+        include: { invitee: true },
+        orderBy: { id: 'desc' } // or any sort order, id is cuid so it represents time roughly
+      });
+
+      const result = invites.map(inv => {
+        // Calculate account age at the time of invite, or current time if inviteeAccountAgeDays is null
+        // But actually the schema has inviteeAccountAgeDays
+        return {
+          inviteeId: inv.inviteeId,
+          username: inv.invitee?.username || 'Unknown',
+          avatarUrl: inv.invitee?.avatarUrl,
+          status: inv.status,
+          accountAgeDays: inv.inviteeAccountAgeDays,
+          isFake: inv.isFake,
+          fakeReason: inv.fakeReason
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      logger.error('Error fetching user invites:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/leaderboards
   app.get('/api/leaderboards', authMiddleware, async (req, res) => {
     try {

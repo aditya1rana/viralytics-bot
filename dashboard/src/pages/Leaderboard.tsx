@@ -20,6 +20,16 @@ interface LeaderboardEntry {
   approvedSubmissions?: number;
 }
 
+interface InviteDetail {
+  inviteeId: string;
+  username: string;
+  avatarUrl?: string | null;
+  status: 'VALID' | 'LEFT' | 'FAKE';
+  accountAgeDays?: number | null;
+  isFake: boolean;
+  fakeReason?: string | null;
+}
+
 export default function Leaderboard() {
   const [activeTab, setActiveTab] = useState<'invites' | 'xp' | 'submissions'>('invites');
   const [leaderboards, setLeaderboards] = useState<{
@@ -29,6 +39,10 @@ export default function Leaderboard() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [selectedUserForInvites, setSelectedUserForInvites] = useState<string | null>(null);
+  const [invitesData, setInvitesData] = useState<InviteDetail[] | null>(null);
+  const [invitesLoading, setInvitesLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -43,6 +57,16 @@ export default function Leaderboard() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const openInvitesModal = (userId: string) => {
+    setSelectedUserForInvites(userId);
+    setInvitesData(null);
+    setInvitesLoading(true);
+    api.getUserInvites(userId)
+      .then(data => setInvitesData(data))
+      .catch(err => console.error('Failed to fetch invites:', err))
+      .finally(() => setInvitesLoading(false));
+  };
 
   if (loading) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Loading leaderboards...</div>;
@@ -187,6 +211,7 @@ export default function Leaderboard() {
             {topThree[1] && (
               <div 
                 className="glass-card" 
+                onClick={() => activeTab === 'invites' && openInvitesModal(topThree[1].userId)}
                 style={{ 
                   ...getPodiumStyle(2), 
                   padding: '24px', 
@@ -194,7 +219,8 @@ export default function Leaderboard() {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '12px'
+                  gap: '12px',
+                  cursor: activeTab === 'invites' ? 'pointer' : 'default'
                 }}
               >
                 <div style={{ fontSize: '32px' }}>{getMedalEmoji(2)}</div>
@@ -221,6 +247,7 @@ export default function Leaderboard() {
             {topThree[0] && (
               <div 
                 className="glass-card" 
+                onClick={() => activeTab === 'invites' && openInvitesModal(topThree[0].userId)}
                 style={{ 
                   ...getPodiumStyle(1), 
                   padding: '32px 24px', 
@@ -230,7 +257,8 @@ export default function Leaderboard() {
                   alignItems: 'center',
                   gap: '12px',
                   transform: 'scale(1.03)',
-                  zIndex: 2
+                  zIndex: 2,
+                  cursor: activeTab === 'invites' ? 'pointer' : 'default'
                 }}
               >
                 <div style={{ fontSize: '40px' }}>{getMedalEmoji(1)}</div>
@@ -257,6 +285,7 @@ export default function Leaderboard() {
             {topThree[2] && (
               <div 
                 className="glass-card" 
+                onClick={() => activeTab === 'invites' && openInvitesModal(topThree[2].userId)}
                 style={{ 
                   ...getPodiumStyle(3), 
                   padding: '20px 24px', 
@@ -264,7 +293,8 @@ export default function Leaderboard() {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '12px'
+                  gap: '12px',
+                  cursor: activeTab === 'invites' ? 'pointer' : 'default'
                 }}
               >
                 <div style={{ fontSize: '28px' }}>{getMedalEmoji(3)}</div>
@@ -320,7 +350,12 @@ export default function Leaderboard() {
                 </thead>
                 <tbody>
                   {others.map(entry => (
-                    <tr key={entry.userId}>
+                    <tr 
+                      key={entry.userId} 
+                      onClick={() => activeTab === 'invites' && openInvitesModal(entry.userId)}
+                      style={{ cursor: activeTab === 'invites' ? 'pointer' : 'default' }}
+                      className={activeTab === 'invites' ? 'row-hover' : ''}
+                    >
                       <td style={{ fontWeight: 'bold', paddingLeft: '24px', color: 'var(--text-secondary)' }}>
                         #{entry.rank}
                       </td>
@@ -371,6 +406,96 @@ export default function Leaderboard() {
             </div>
           )}
         </>
+      )}
+
+      {/* Invites Detail Modal */}
+      {selectedUserForInvites && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="glass-card" style={{
+            width: '90%', maxWidth: '800px', maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            padding: '24px', borderRadius: '16px', overflow: 'hidden'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px' }}>Invites Detail</h2>
+              <button onClick={() => setSelectedUserForInvites(null)} style={{
+                background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '24px'
+              }}>&times;</button>
+            </div>
+            
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
+              {invitesLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>Loading invites...</div>
+              ) : invitesData && invitesData.length > 0 ? (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Status</th>
+                      <th>Account Age</th>
+                      <th>Profile</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invitesData.map(inv => (
+                      <tr key={inv.inviteeId}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{
+                              width: '24px', height: '24px', borderRadius: '50%', background: 'var(--glass-border)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px'
+                            }}>
+                              {inv.username[0].toUpperCase()}
+                            </div>
+                            {inv.username}
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{
+                            padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold',
+                            backgroundColor: inv.status === 'VALID' ? 'rgba(46, 204, 113, 0.2)' : 
+                                           inv.status === 'LEFT' ? 'rgba(231, 76, 60, 0.2)' : 'rgba(241, 196, 15, 0.2)',
+                            color: inv.status === 'VALID' ? '#2ecc71' : 
+                                   inv.status === 'LEFT' ? '#e74c3c' : '#f1c40f'
+                          }}>
+                            {inv.isFake ? 'FAKE' : inv.status}
+                          </span>
+                          {inv.isFake && inv.fakeReason && (
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                              {inv.fakeReason}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ fontSize: '13px' }}>
+                          {inv.accountAgeDays !== null && inv.accountAgeDays !== undefined 
+                            ? `${inv.accountAgeDays} days old` 
+                            : 'Unknown'}
+                        </td>
+                        <td>
+                          <a 
+                            href={`https://discord.com/users/${inv.inviteeId}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '13px' }}
+                          >
+                            View Profile
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                  No invites found for this user.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

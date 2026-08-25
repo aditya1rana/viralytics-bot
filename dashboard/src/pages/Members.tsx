@@ -7,10 +7,22 @@ export default function Members() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
   const [statusFilter, setStatusFilter] = useState<'current' | 'left'>('current');
+  const [editingMember, setEditingMember] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    bonusInvites: 0,
+    totalInvites: 0,
+    fakeInvites: 0,
+    leftInvites: 0,
+    verificationStatus: 'UNVERIFIED'
+  });
 
   useEffect(() => {
+    const cleanup = fetchMembers();
+    return cleanup;
+  }, [page, search, statusFilter]);
+
+  const fetchMembers = () => {
     const delayDebounce = setTimeout(() => {
       setLoading(true);
       api.getMembers(page, search, statusFilter)
@@ -21,9 +33,18 @@ export default function Members() {
         .catch(console.error)
         .finally(() => setLoading(false));
     }, 500);
-
     return () => clearTimeout(delayDebounce);
-  }, [page, search, statusFilter]);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingMember) return;
+    api.updateMember(editingMember.userId, editForm)
+      .then(() => {
+        setEditingMember(null);
+        fetchMembers();
+      })
+      .catch(console.error);
+  };
 
   return (
     <div>
@@ -75,6 +96,7 @@ export default function Members() {
                     <th>Invites (Valid)</th>
                   </>
                 )}
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -146,6 +168,24 @@ export default function Members() {
                           </td>
                         </>
                       )}
+                      <td>
+                        <button 
+                          className="btn outline" 
+                          style={{ padding: '4px 12px', fontSize: '12px' }}
+                          onClick={() => {
+                            setEditingMember(member);
+                            setEditForm({
+                              bonusInvites: member.bonusInvites || 0,
+                              totalInvites: member.totalInvites || 0,
+                              fakeInvites: member.fakeInvites || 0,
+                              leftInvites: member.leftInvites || 0,
+                              verificationStatus: member.verificationStatus || 'UNVERIFIED'
+                            });
+                          }}
+                        >
+                          Edit
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
@@ -164,6 +204,90 @@ export default function Members() {
           Next
         </button>
       </div>
+
+      {editingMember && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="glass-card" style={{
+            width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column',
+            padding: '24px', borderRadius: '16px', backgroundColor: 'var(--bg-color)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px' }}>Edit {editingMember.user?.username || 'Member'}</h2>
+              <button 
+                onClick={() => setEditingMember(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '20px' }}
+              >×</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Bonus Invites</label>
+                <input 
+                  type="number" 
+                  value={editForm.bonusInvites}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, bonusInvites: parseInt(e.target.value) || 0 }))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Total Invites (Raw)</label>
+                <input 
+                  type="number" 
+                  value={editForm.totalInvites}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, totalInvites: parseInt(e.target.value) || 0 }))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Fake Invites</label>
+                <input 
+                  type="number" 
+                  value={editForm.fakeInvites}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, fakeInvites: parseInt(e.target.value) || 0 }))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Left Invites</label>
+                <input 
+                  type="number" 
+                  value={editForm.leftInvites}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, leftInvites: parseInt(e.target.value) || 0 }))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-secondary)' }}>Verification Status</label>
+                <select 
+                  value={editForm.verificationStatus}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, verificationStatus: e.target.value }))}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--glass-border)' }}
+                >
+                  <option value="VERIFIED">Verified</option>
+                  <option value="UNVERIFIED">Unverified</option>
+                </select>
+              </div>
+
+              <button 
+                className="btn primary" 
+                style={{ marginTop: '16px' }}
+                onClick={handleSaveEdit}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

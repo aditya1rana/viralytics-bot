@@ -65,6 +65,10 @@ export const api = {
     body: JSON.stringify({ status }),
   }),
   getMembers: (page = 1, search = '', status = 'current') => fetchWithAuth(`/members?page=${page}&search=${encodeURIComponent(search)}&status=${status}`),
+  updateMember: (userId: string, data: any) => fetchWithAuth(`/members/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  }),
   getSubmissions: (status = 'ALL', campaignId = '', search = '') => 
     fetchWithAuth(`/submissions?status=${status}&campaignId=${campaignId}&search=${encodeURIComponent(search)}`),
   getPendingSubmissions: () => fetchWithAuth('/submissions?status=PENDING'),

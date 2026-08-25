@@ -777,6 +777,27 @@ export function createDashboardApp(discordClient?: any) {
     }
   });
 
+  // PUT /api/members/:userId
+  app.put('/api/members/:userId', authMiddleware, async (req, res) => {
+    try {
+      const { bonusInvites, fakeInvites, leftInvites, totalInvites, verificationStatus } = req.body;
+      const member = await prisma.member.update({
+        where: { guildId_userId: { guildId, userId: req.params.userId as string } },
+        data: {
+          ...(bonusInvites !== undefined && { bonusInvites: Number(bonusInvites) }),
+          ...(fakeInvites !== undefined && { fakeInvites: Number(fakeInvites) }),
+          ...(leftInvites !== undefined && { leftInvites: Number(leftInvites) }),
+          ...(totalInvites !== undefined && { totalInvites: Number(totalInvites) }),
+          ...(verificationStatus !== undefined && { verificationStatus }),
+        }
+      });
+      res.json(member);
+    } catch (error) {
+      logger.error('Error updating member:', error);
+      res.status(500).json({ error: 'Failed to update member' });
+    }
+  });
+
   // GET /api/payouts
   app.get('/api/payouts', authMiddleware, async (req, res) => {
     try {

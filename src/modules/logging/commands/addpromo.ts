@@ -38,7 +38,7 @@ Format exactly like this, no markdown, no other text:
     let parsedData = { contactName: null, services: null, pricing: null };
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.5-flash-lite',
         contents: systemPrompt + '\n\nMessage:\n' + rawMessage,
         config: {
           temperature: 0.1,

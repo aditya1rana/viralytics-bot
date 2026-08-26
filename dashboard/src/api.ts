@@ -50,6 +50,7 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(config),
   }),
+  getPromos: () => fetchWithAuth('/promos'),
   getLogs: (type: string, page = 1) => fetchWithAuth(`/logs?type=${type}&page=${page}`),
   getCampaigns: () => fetchWithAuth('/campaigns'),
   createCampaign: (campaign: any) => fetchWithAuth('/campaigns', {

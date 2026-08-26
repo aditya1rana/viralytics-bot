@@ -1027,6 +1027,21 @@ export function createDashboardApp(discordClient?: any) {
     }
   });
 
+  // GET /api/promos
+  app.get('/api/promos', authMiddleware, async (req, res) => {
+    try {
+      const promos = await prisma.promoOffer.findMany({
+        where: { guildId },
+        orderBy: { createdAt: 'desc' },
+        include: { submittedBy: true }
+      });
+      res.json(promos);
+    } catch (error) {
+      logger.error('Error fetching promos:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // GET /api/logs
   app.get('/api/logs', authMiddleware, async (req, res) => {
     try {

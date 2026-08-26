@@ -168,6 +168,7 @@ model Guild {
   leaderboardSnapshots  LeaderboardSnapshot[]
   announcements         Announcement[]
   reminders             Reminder[]
+  promoOffers           PromoOffer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -203,6 +204,7 @@ model User {
   invitesReceived  Invite[]        @relation("Invitee")
   auditLogs        AuditLog[]
   payouts          Payout[]
+  promoOffersSubmitted PromoOffer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -778,5 +780,28 @@ model AuditLog {
   @@index([guildId, actorId])
   @@index([guildId, targetId])
   @@index([guildId, createdAt])
+  @@index([createdAt])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PROMO OFFERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model PromoOffer {
+  id             String   @id @default(cuid())
+  guildId        String
+  submittedById  String
+  contactName    String?
+  contactId      String?
+  services       String?
+  pricing        String?
+  rawMessage     String   @db.Text
+  
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  submittedBy    User     @relation(fields: [submittedById], references: [id])
+
+  createdAt      DateTime @default(now())
+
+  @@index([guildId])
   @@index([createdAt])
 }

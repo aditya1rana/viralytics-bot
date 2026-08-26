@@ -29,6 +29,7 @@ interface InviteDetail {
   isFake: boolean;
   fakeReason?: string | null;
   verificationStatus: string;
+  joinedAt: string;
 }
 
 export default function Leaderboard() {
@@ -178,6 +179,10 @@ export default function Leaderboard() {
     if (rank === 2) return '🥈';
     return '🥉';
   };
+
+  const detailTotal = invitesData?.length || 0;
+  const detailVerified = invitesData?.filter(i => i.verificationStatus === 'VERIFIED').length || 0;
+  const detailUnverified = detailTotal - detailVerified;
 
   return (
     <div className="animate-fade-in">
@@ -487,7 +492,16 @@ export default function Leaderboard() {
             boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, fontSize: '20px' }}>Invites Detail</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <h2 style={{ margin: 0, fontSize: '20px' }}>Invites Detail</h2>
+                {invitesData && (
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '13px', fontWeight: 'normal', color: 'var(--text-secondary)' }}>
+                    <span style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '4px' }}>Total: {detailTotal}</span>
+                    <span style={{ backgroundColor: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', padding: '4px 8px', borderRadius: '4px' }}>Verified: {detailVerified}</span>
+                    <span style={{ backgroundColor: 'rgba(248, 113, 113, 0.1)', color: '#f87171', padding: '4px 8px', borderRadius: '4px' }}>Unverified: {detailUnverified}</span>
+                  </div>
+                )}
+              </div>
               <button onClick={() => setSelectedUserForInvites(null)} style={{
                 background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '24px'
               }}>&times;</button>
@@ -503,6 +517,7 @@ export default function Leaderboard() {
                       <th>User</th>
                       <th>Verification</th>
                       <th>Invite Status</th>
+                      <th>Joined At</th>
                       <th>Account Age</th>
                       <th>Profile</th>
                     </tr>
@@ -553,6 +568,9 @@ export default function Leaderboard() {
                               {inv.fakeReason}
                             </div>
                           )}
+                        </td>
+                        <td style={{ fontSize: '13px' }}>
+                          {inv.joinedAt ? new Date(inv.joinedAt).toLocaleDateString() : 'Unknown'}
                         </td>
                         <td style={{ fontSize: '13px' }}>
                           {inv.accountAgeDays !== null && inv.accountAgeDays !== undefined 

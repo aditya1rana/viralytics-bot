@@ -901,7 +901,8 @@ export function createDashboardApp(discordClient?: any) {
           accountAgeDays: accountAgeDays,
           isFake: inv.isFake,
           fakeReason: inv.fakeReason,
-          verificationStatus: member?.verificationStatus || 'UNVERIFIED'
+          verificationStatus: member?.verificationStatus || 'UNVERIFIED',
+          joinedAt: inv.joinedAt
         };
       });
 

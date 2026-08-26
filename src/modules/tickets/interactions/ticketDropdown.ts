@@ -34,37 +34,31 @@ const handler: SelectMenuHandler = {
         return;
       }
 
-      let aiGreeting = '';
+      let greeting = '';
       switch (categoryValue) {
         case 'SUPPORT':
-          aiGreeting = `🛠️ **Viralytics AI Support**\n\nI'm here to help with general Viralytics and server-related questions.`;
+          greeting = `**Viralytics Support**\n\nPlease describe your issue and our team will get back to you shortly.`;
           break;
         case 'PAYMENT':
-          aiGreeting = `💳 **Viralytics Payment Support**\n\nI can help with general payment and reward questions.`;
+          greeting = `**Viralytics Payment Support**\n\nPlease describe your payment issue and our team will get back to you shortly.`;
           break;
         case 'CAMPAIGN_HELP':
-          aiGreeting = `📈 **Viralytics Campaign Support**\n\nI can help with campaign rules, clipping, submissions and campaign-related questions.`;
+          greeting = `**Viralytics Campaign Support**\n\nPlease describe your campaign issue and our team will get back to you shortly.`;
           break;
         case 'PARTNERSHIP':
-          aiGreeting = `🤝 **Viralytics Partnerships**\n\nTell us about your company, service, creator profile or partnership idea.`;
+          greeting = `**Viralytics Partnerships**\n\nTell us about your company, service, creator profile or partnership idea.`;
           break;
         case 'BUG_REPORT':
-          aiGreeting = `🐛 **Viralytics Bug Report**\n\nPlease describe the issue and provide screenshots, videos, errors or relevant links if available.`;
+          greeting = `**Viralytics Bug Report**\n\nPlease describe the issue and provide screenshots, videos, errors or relevant links if available.`;
           break;
         default:
-          aiGreeting = `🤖 **Viralytics AI Support**\n\nHow can I help you today?`;
+          greeting = `**Viralytics Support**\n\nHow can we help you today?`;
       }
 
       const embed = new EmbedBuilder()
         .setTitle(`Ticket created: ${subject}`)
-        .setDescription(`Welcome <@${user.id}>!\n\n${aiGreeting}`)
+        .setDescription(`Welcome <@${user.id}>!\n\n${greeting}`)
         .setColor(COLORS.primary);
-
-      const moderatorButton = new ButtonBuilder()
-        .setCustomId('ai_request_human')
-        .setLabel('Talk to Moderator')
-        .setEmoji('🧑‍💼')
-        .setStyle(ButtonStyle.Secondary);
 
       const closeButton = new ButtonBuilder()
         .setCustomId('ticket_close')
@@ -72,35 +66,9 @@ const handler: SelectMenuHandler = {
         .setEmoji('🔒')
         .setStyle(ButtonStyle.Danger);
 
-      // AI Staff Controls
-      const aiOnButton = new ButtonBuilder()
-        .setCustomId('ai_on')
-        .setLabel('AI ON')
-        .setEmoji('🤖')
-        .setStyle(ButtonStyle.Success);
+      const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(closeButton);
 
-      const aiOffButton = new ButtonBuilder()
-        .setCustomId('ai_off')
-        .setLabel('AI OFF')
-        .setEmoji('🔇')
-        .setStyle(ButtonStyle.Danger);
-
-      const aiStatusButton = new ButtonBuilder()
-        .setCustomId('ai_status')
-        .setLabel('AI STATUS')
-        .setEmoji('📊')
-        .setStyle(ButtonStyle.Primary);
-        
-      const aiTakeoverButton = new ButtonBuilder()
-        .setCustomId('ai_takeover')
-        .setLabel('TAKE OVER')
-        .setEmoji('🧑‍💼')
-        .setStyle(ButtonStyle.Primary);
-
-      const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(moderatorButton, closeButton);
-      const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(aiOnButton, aiOffButton, aiStatusButton, aiTakeoverButton);
-
-      await channel.send({ content: `<@${user.id}>`, embeds: [embed], components: [row1, row2] });
+      await channel.send({ content: `<@${user.id}>`, embeds: [embed], components: [row1] });
 
       await interaction.editReply({ content: `Your ticket has been created: <#${channel.id}>` });
 

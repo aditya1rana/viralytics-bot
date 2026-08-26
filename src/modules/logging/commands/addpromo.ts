@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from '
 import { prisma } from '../../../services/database.js';
 import { GoogleGenAI } from '@google/genai';
 import { logger } from '../../../services/logger.js';
+import { config } from '../../../config.js';
 
 export const data = new SlashCommandBuilder()
   .setName('addpromo')
@@ -33,7 +34,7 @@ Return ONLY a valid JSON object with these keys:
 Format exactly like this, no markdown, no other text:
 {"contactName": "Name", "services": "Services", "pricing": "Pricing"}`;
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+    const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
     
     let parsedData = { contactName: null, services: null, pricing: null };
     try {

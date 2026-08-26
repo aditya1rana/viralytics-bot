@@ -19,8 +19,38 @@ export const ticketService = {
     const ticketNumber = await this.getNextTicketNumber(guild.id);
     const channelName = `ticket-${ticketNumber}-${user.username.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}`;
 
-    const config = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
-    const categoryId = config?.ticketCategoryId || null;
+    const categoryNames: Record<TicketCategory, string> = {
+      SUPPORT: 'Support',
+      PAYMENT: 'Payment',
+      CAMPAIGN_HELP: 'Campaign Help',
+      PARTNERSHIP: 'Partnership',
+      BUG_REPORT: 'Bug Report',
+      OTHER: 'Other'
+    };
+    
+    const targetCategoryName = categoryNames[category] || 'Tickets';
+    
+    // Find or create the discord category
+    let discordCategory = guild.channels.cache.find(
+      c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === targetCategoryName.toLowerCase()
+    );
+
+    if (!discordCategory) {
+      // Try to fetch it just in case it's not cached
+      const channels = await guild.channels.fetch();
+      discordCategory = channels.find(
+        c => c?.type === ChannelType.GuildCategory && c.name.toLowerCase() === targetCategoryName.toLowerCase()
+      ) || undefined;
+      
+      if (!discordCategory) {
+        discordCategory = await guild.channels.create({
+          name: targetCategoryName,
+          type: ChannelType.GuildCategory,
+        });
+      }
+    }
+
+    const categoryId = discordCategory.id;
 
     try {
       const channel = await guild.channels.create({

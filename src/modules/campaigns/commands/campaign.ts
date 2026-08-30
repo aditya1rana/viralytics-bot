@@ -10,10 +10,42 @@ import { prisma } from '../../../services/database.js';
 
 const parsePlatforms = (input: string): Platform[] => {
     const validPlatforms = Object.values(Platform);
+    
+    // Map common user inputs to exact Enum values
+    const aliases: Record<string, Platform> = {
+        'INSTAGRAM': Platform.INSTAGRAM_REELS,
+        'IG': Platform.INSTAGRAM_REELS,
+        'REELS': Platform.INSTAGRAM_REELS,
+        'YOUTUBE': Platform.YOUTUBE_SHORTS,
+        'YT': Platform.YOUTUBE_SHORTS,
+        'SHORTS': Platform.YOUTUBE_SHORTS,
+        'FACEBOOK': Platform.FACEBOOK_REELS,
+        'FB': Platform.FACEBOOK_REELS,
+        'TWITTER': Platform.X_VIDEOS,
+        'X': Platform.X_VIDEOS,
+        'TIKTOK': Platform.TIKTOK,
+        'THREADS': Platform.THREADS
+    };
+
     return input
         .split(',')
-        .map(p => p.trim().toUpperCase() as Platform)
+        .map(p => {
+            const trimmed = p.trim().toUpperCase();
+            return aliases[trimmed] || (trimmed as Platform);
+        })
         .filter(p => validPlatforms.includes(p));
+};
+
+const formatPlatform = (p: string): string => {
+    const names: Record<string, string> = {
+        'INSTAGRAM_REELS': 'Instagram',
+        'TIKTOK': 'TikTok',
+        'YOUTUBE_SHORTS': 'YouTube Shorts',
+        'FACEBOOK_REELS': 'Facebook',
+        'X_VIDEOS': 'X (Twitter)',
+        'THREADS': 'Threads'
+    };
+    return names[p] || p;
 };
 
 const command: Command = {
@@ -137,7 +169,7 @@ const command: Command = {
                 const embed = embedBuilder.success(`Campaign **${name}** created successfully!`)
                     .addFields([
                         { name: 'Status', value: campaign.status, inline: true },
-                        { name: 'Platforms', value: platforms.length > 0 ? platforms.join(', ') : 'Any', inline: true }
+                        { name: 'Platforms', value: platforms.length > 0 ? platforms.map(formatPlatform).join(', ') : 'Any', inline: true }
                     ]);
 
                 await interaction.editReply({ embeds: [embed] });
@@ -269,7 +301,7 @@ const command: Command = {
                     .addFields([
                         { name: 'Status', value: `\`${campaign.status}\``, inline: true },
                         { name: 'Pay/Approved', value: campaign.payPerApproved ? `$${campaign.payPerApproved}` : 'N/A', inline: true },
-                        { name: 'Platforms', value: campaign.platforms.length > 0 ? campaign.platforms.join(', ') : 'Any', inline: true },
+                        { name: 'Platforms', value: campaign.platforms.length > 0 ? campaign.platforms.map(formatPlatform).join(', ') : 'Any', inline: true },
                         { name: 'Start Date', value: campaign.startsAt ? `<t:${Math.floor(campaign.startsAt.getTime()/1000)}:d>` : 'None', inline: true },
                         { name: 'End Date', value: campaign.endsAt ? `<t:${Math.floor(campaign.endsAt.getTime()/1000)}:d>` : 'None', inline: true },
                         { name: 'Max Submissions/User', value: campaign.maxSubmissionsPerUser?.toString() || 'Unlimited', inline: true },
@@ -388,7 +420,7 @@ const command: Command = {
                     embedDesc += `**📝 Description**\n${campaign.description}\n\n`;
                 }
 
-                embedDesc += `**❗ Campaign Details**\n• **Platforms**: ${campaign.platforms.length > 0 ? campaign.platforms.join(', ') : 'Any'}\n`;
+                embedDesc += `**❗ Campaign Details**\n• **Platforms**: ${campaign.platforms.length > 0 ? campaign.platforms.map(formatPlatform).join(', ') : 'Any'}\n`;
                 
                 if (campaign.cpmRate && Number(campaign.cpmRate) > 0) {
                     embedDesc += `• **CPM**: $${campaign.cpmRate}\n`;

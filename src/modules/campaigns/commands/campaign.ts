@@ -81,6 +81,7 @@ const command: Command = {
             .setName('announce')
             .setDescription('Setup Discord roles/channels and announce the campaign')
             .addStringOption(opt => opt.setName('campaign').setDescription('Select campaign').setRequired(true).setAutocomplete(true))
+            .addBooleanOption(opt => opt.setName('mass-dm').setDescription('Send a DM to every server member? (Default: False)').setRequired(false))
         )
         .addSubcommand(sub => sub
             .setName('archive')
@@ -319,6 +320,7 @@ const command: Command = {
             else if (subcommand === 'announce') {
                 await interaction.deferReply({ ephemeral: true });
                 const id = interaction.options.getString('campaign', true);
+                const massDm = interaction.options.getBoolean('mass-dm') ?? false;
                 const campaign = await prisma.campaign.findUnique({ where: { id } });
                 
                 if (!campaign || campaign.guildId !== guildId) {
@@ -458,36 +460,40 @@ const command: Command = {
                     await (interaction.channel as any).send({ embeds: [announceEmbed], components: [buttons] });
                 }
                 
-                await interaction.editReply({ content: '✅ Campaign setup and announced successfully! Sending DMs to all members in the background...' });
+                if (massDm) {
+                    await interaction.editReply({ content: '✅ Campaign setup and announced successfully! Sending DMs to all members in the background...' });
+                    
+                    // 5. Background Mass DM
+                    // Note: We don't await this so it runs independently in the background.
+                    (async () => {
+                        try {
+                            logger.info(`Starting Mass DM broadcast for campaign ${campaign.name}...`);
+                            const members = await guild.members.fetch();
+                            let successCount = 0;
+                            let failCount = 0;
 
-                // 5. Background Mass DM
-                // Note: We don't await this so it runs independently in the background.
-                (async () => {
-                    try {
-                        logger.info(`Starting Mass DM broadcast for campaign ${campaign.name}...`);
-                        const members = await guild.members.fetch();
-                        let successCount = 0;
-                        let failCount = 0;
+                            for (const [, member] of members) {
+                                if (member.user.bot) continue; // Skip bots
 
-                        for (const [, member] of members) {
-                            if (member.user.bot) continue; // Skip bots
-
-                            try {
-                                await member.send({ embeds: [announceEmbed], components: [buttons] });
-                                successCount++;
-                            } catch (err) {
-                                // Usually means DMs are disabled or blocked
-                                failCount++;
+                                try {
+                                    await member.send({ embeds: [announceEmbed], components: [buttons] });
+                                    successCount++;
+                                } catch (err) {
+                                    // Usually means DMs are disabled or blocked
+                                    failCount++;
+                                }
+                                // Crucial delay to prevent Discord anti-spam ban
+                                await new Promise(resolve => setTimeout(resolve, 2500));
                             }
-                            // Crucial delay to prevent Discord anti-spam ban
-                            await new Promise(resolve => setTimeout(resolve, 2500));
+                            
+                            logger.info(`Mass DM broadcast for ${campaign.name} completed. Sent: ${successCount}, Failed: ${failCount}.`);
+                        } catch (error) {
+                            logger.error(`Mass DM broadcast error for ${campaign.name}:`, error);
                         }
-                        
-                        logger.info(`Mass DM broadcast for ${campaign.name} completed. Sent: ${successCount}, Failed: ${failCount}.`);
-                    } catch (error) {
-                        logger.error(`Mass DM broadcast error for ${campaign.name}:`, error);
-                    }
-                })();
+                    })();
+                } else {
+                    await interaction.editReply({ content: '✅ Campaign setup and announced successfully in the channel!' });
+                }
                 
             }
         } catch (error: any) {

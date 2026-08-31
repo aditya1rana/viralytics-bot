@@ -24,10 +24,13 @@ const PLATFORM_CONFIGS: PlatformConfig[] = [
   {
     platform: 'TIKTOK',
     hostnames: ['tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'm.tiktok.com'],
-    pathPattern: /\/@[^/]+\/video\/(\d+)|\/v\/(\d+)/,
+    pathPattern: /\/@[^/]+\/video\/(\d+)|\/v\/(\d+)|\/t\/([A-Za-z0-9_-]+)|\/([A-Za-z0-9_-]+)/,
     normalizeUrl: (url, match) => {
       const videoId = match[1] || match[2];
       if (videoId) return `https://www.tiktok.com/video/${videoId}`;
+      
+      // Preserve vm.tiktok.com or short links
+      if (url.hostname === 'vm.tiktok.com') return `https://vm.tiktok.com${url.pathname}`;
       return `https://www.tiktok.com${url.pathname}`;
     },
   },

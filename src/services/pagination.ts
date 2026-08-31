@@ -25,7 +25,11 @@ export async function paginate(
   const { ephemeral = false, timeout = 120_000, showPageNumbers = true } = options;
 
   if (pages.length === 1) {
-    await interaction.reply({ embeds: [pages[0]], ephemeral });
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ embeds: [pages[0]] });
+    } else {
+      await interaction.reply({ embeds: [pages[0]], ephemeral });
+    }
     return;
   }
 

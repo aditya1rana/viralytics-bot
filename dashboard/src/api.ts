@@ -93,7 +93,13 @@ export const api = {
     body: JSON.stringify({ campaignId }),
   }),
   payPayout: (id: string) => fetchWithAuth(`/payouts/${id}/pay`, { method: 'POST' }),
-  getActivityStats: () => fetchWithAuth('/stats/activity'),
+  getActivityStats: (type?: string, all?: boolean) => {
+    const params = new URLSearchParams();
+    if (type) params.set('type', type);
+    if (all) params.set('all', 'true');
+    const qs = params.toString();
+    return fetchWithAuth(`/stats/activity${qs ? `?${qs}` : ''}`);
+  },
   getLeaderboards: () => fetchWithAuth('/leaderboards'),
   getUserInvites: (userId: string) => fetchWithAuth(`/users/${userId}/invites`),
   getUnknownInvites: () => fetchWithAuth('/invites/unknown'),

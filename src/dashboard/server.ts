@@ -837,29 +837,82 @@ export function createDashboardApp(discordClient?: any) {
   // GET /api/stats/activity
   app.get('/api/stats/activity', authMiddleware, async (req, res) => {
     try {
-      const activity = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateString = date.toISOString().split('T')[0];
-        
-        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
-        
-        const count = await prisma.submission.count({
-          where: {
-            guildId,
-            createdAt: {
-              gte: startOfDay,
-              lte: endOfDay,
-            }
+      const type = (req.query.type as string) || 'submissions';
+      const days = parseInt(req.query.days as string) || 7;
+
+      const getDateRanges = () => {
+        const ranges = [];
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dateString = d.toISOString().split('T')[0];
+          
+          const start = new Date(d);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(d);
+          end.setHours(23, 59, 59, 999);
+          
+          ranges.push({ dateString, start, end });
+        }
+        return ranges;
+      };
+
+      const ranges = getDateRanges();
+
+      const fetchSeries = async (metricType: string) => {
+        const series = [];
+        for (const r of ranges) {
+          let count = 0;
+          if (metricType === 'members') {
+            count = await prisma.member.count({
+              where: {
+                guildId,
+                createdAt: { gte: r.start, lte: r.end },
+              },
+            });
+          } else if (metricType === 'verified') {
+            count = await prisma.member.count({
+              where: {
+                guildId,
+                verificationStatus: 'VERIFIED',
+                verifiedAt: { gte: r.start, lte: r.end },
+              },
+            });
+          } else if (metricType === 'campaigns') {
+            count = await prisma.campaign.count({
+              where: {
+                guildId,
+                createdAt: { gte: r.start, lte: r.end },
+              },
+            });
+          } else {
+            count = await prisma.submission.count({
+              where: {
+                guildId,
+                createdAt: { gte: r.start, lte: r.end },
+              },
+            });
           }
-        });
-        
-        activity.push({ date: dateString, count });
+          series.push({ date: r.dateString, count });
+        }
+        return series;
+      };
+
+      if (req.query.all === 'true') {
+        const [submissions, members, verified, campaigns] = await Promise.all([
+          fetchSeries('submissions'),
+          fetchSeries('members'),
+          fetchSeries('verified'),
+          fetchSeries('campaigns'),
+        ]);
+        res.json({ submissions, members, verified, campaigns });
+        return;
       }
-      res.json(activity);
+
+      const series = await fetchSeries(type);
+      res.json(series);
     } catch (error) {
+      logger.error('Error fetching activity stats:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });

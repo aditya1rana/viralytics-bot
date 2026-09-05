@@ -4,21 +4,29 @@ import { prisma } from '../services/database.js';
 /**
  * Ensure a User row exists in the database.
  */
-export async function ensureUser(member: GuildMember) {
-  const discordCreatedAt = member.user.createdAt;
+export async function ensureUser(member: GuildMember | any) {
+  const discordCreatedAt = member.user?.createdAt || member.createdAt || new Date();
+  const userId = member.user?.id || member.id;
+  const username = member.user?.username || member.username || `user_${userId}`;
+  const discriminator = member.user?.discriminator || member.discriminator || '0';
+  const globalName = member.user?.globalName ?? member.globalName ?? null;
+  const avatarUrl = typeof member.user?.displayAvatarURL === 'function' 
+    ? member.user.displayAvatarURL() 
+    : (typeof member.displayAvatarURL === 'function' ? member.displayAvatarURL() : null);
+
   return prisma.user.upsert({
-    where: { id: member.user.id },
+    where: { id: userId },
     update: {
-      username: member.user.username,
-      globalName: member.user.globalName ?? null,
-      avatarUrl: member.user.displayAvatarURL() ?? null,
+      username,
+      globalName,
+      avatarUrl,
     },
     create: {
-      id: member.user.id,
-      username: member.user.username,
-      discriminator: member.user.discriminator,
-      globalName: member.user.globalName ?? null,
-      avatarUrl: member.user.displayAvatarURL() ?? null,
+      id: userId,
+      username,
+      discriminator,
+      globalName,
+      avatarUrl,
       accountCreatedAt: discordCreatedAt,
     },
   });
@@ -27,27 +35,61 @@ export async function ensureUser(member: GuildMember) {
 /**
  * Ensure a Guild row exists in the database.
  */
-export async function ensureGuild(guild: Guild) {
+export async function ensureGuild(guild: Guild | any) {
+  const guildId = guild.id;
+  const name = guild.name || 'Discord Server';
+  const iconUrl = typeof guild.iconURL === 'function' ? guild.iconURL() : null;
+  const ownerId = guild.ownerId || 'unknown';
+
   return prisma.guild.upsert({
-    where: { id: guild.id },
+    where: { id: guildId },
     update: {
-      name: guild.name,
-      iconUrl: guild.iconURL() ?? null,
-      ownerId: guild.ownerId,
+      name,
+      iconUrl,
+      ownerId,
     },
     create: {
-      id: guild.id,
-      name: guild.name,
-      iconUrl: guild.iconURL() ?? null,
-      ownerId: guild.ownerId,
+      id: guildId,
+      name,
+      iconUrl,
+      ownerId,
     },
   });
 }
 
 /**
  * Ensure a Member row exists for a user in a guild.
+ * Automatically guarantees both Guild and User rows exist to prevent Foreign Key errors.
  */
-export async function ensureMember(guildId: string, userId: string) {
+export async function ensureMember(guildId: string, userId: string, memberOrUser?: any) {
+  // 1. Guarantee Guild exists
+  await prisma.guild.upsert({
+    where: { id: guildId },
+    update: {},
+    create: {
+      id: guildId,
+      name: memberOrUser?.guild?.name || 'Discord Server',
+      ownerId: memberOrUser?.guild?.ownerId || 'unknown',
+    },
+  });
+
+  // 2. Guarantee User exists before creating Member
+  if (memberOrUser?.user || (memberOrUser && memberOrUser.id === userId && memberOrUser.username)) {
+    await ensureUser(memberOrUser);
+  } else {
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: {
+        id: userId,
+        username: `user_${userId}`,
+        discriminator: '0',
+        accountCreatedAt: new Date(),
+      },
+    });
+  }
+
+  // 3. Upsert Member
   return prisma.member.upsert({
     where: { guildId_userId: { guildId, userId } },
     update: {},

@@ -21,7 +21,7 @@ export const verificationService = {
             orderBy: { joinedAt: 'desc' }
           });
 
-          let inviterText = 'Unknown / Direct Link';
+          let inviterText = guild.vanityURLCode ? `Vanity URL (\`discord.gg/${guild.vanityURLCode}\`) / Direct` : 'Unknown / Direct Link';
           if (invite && invite.inviterId) {
             inviterText = `<@${invite.inviterId}> (\`${invite.inviterId}\`)`;
           }

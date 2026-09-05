@@ -58,6 +58,23 @@ const invitesCommand: Command = {
       subcommand
         .setName('panel')
         .setDescription('Post the invites & leaderboard check panel (Admin only).')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('set-inviter')
+        .setDescription('Manually set or correct who invited a member (Admin only).')
+        .addUserOption(option =>
+          option
+            .setName('member')
+            .setDescription('The member who joined')
+            .setRequired(true)
+        )
+        .addUserOption(option =>
+          option
+            .setName('inviter')
+            .setDescription('The user who invited them')
+            .setRequired(true)
+        )
     ) as SlashCommandBuilder,
 
   async execute(interaction: ChatInputCommandInteraction) {
@@ -171,6 +188,34 @@ const invitesCommand: Command = {
 
         await (interaction.channel as TextChannel).send({ embeds: [panelEmbed], components: [row] });
         await interaction.reply({ content: '✅ Invites & Leaderboard panel posted!', ephemeral: true });
+      } else if (subcommand === 'set-inviter') {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          const errorEmbed = embedBuilder.error('You do not have permission to set inviters.');
+          await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+          return;
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+        const memberUser = interaction.options.getUser('member', true);
+        const inviterUser = interaction.options.getUser('inviter', true);
+
+        if (memberUser.id === inviterUser.id) {
+          await interaction.editReply({ embeds: [embedBuilder.error('A user cannot invite themselves.')] });
+          return;
+        }
+
+        await ensureMember(guildId, memberUser.id, { user: memberUser, guild: interaction.guild });
+        await ensureMember(guildId, inviterUser.id, { user: inviterUser, guild: interaction.guild });
+
+        const isFake = false;
+        const accountAge = Math.floor((Date.now() - memberUser.createdTimestamp) / (1000 * 60 * 60 * 24));
+        await InviteService.trackInvite(guildId, inviterUser.id, memberUser.id, 'MANUAL', isFake, accountAge);
+
+        const embed = embedBuilder.success(
+          'Inviter Updated',
+          `Successfully recorded that <@${memberUser.id}> was invited by <@${inviterUser.id}>!`
+        );
+        await interaction.editReply({ embeds: [embed] });
       }
     } catch (error) {
       logger.error('Error executing invites command:', error);
